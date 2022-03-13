@@ -1,3 +1,6 @@
+
+# client.py - Ian Havenaar, Simran Moolchandaney, Jacob Schwartz
+
 import socket                   # Import socket module
 import sys
 

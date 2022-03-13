@@ -1,5 +1,4 @@
 # Configuration
-
 CC			= gcc
 CFLAGS		= -g -std=gnu99 -Wall -Iinclude -fPIC -pthread 
 PY_CFLAGS 	= -I/usr/include/python2.7

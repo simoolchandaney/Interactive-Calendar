@@ -1,5 +1,9 @@
 #include <stdio.h>
 #include <python2.7/Python.h>
+/*
+** clientpython_interpreter.c -- script invokes the proper Python version of client
+    Ian Havenaar, Simran Moolchandaney, Jacob Schwartz
+*/
 
 int main(int argc, char *argv[])
 {

@@ -1,5 +1,6 @@
 /*
 ** server.c -- a stream socket server demo
+    Ian Havenaar, Simran Moolchandaney, Jacob Schwartz
 */
 
 #include <stdio.h>
