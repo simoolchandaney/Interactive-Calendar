@@ -14,7 +14,7 @@ Due date: Friday, March 18th @ 10 PM
 
 ## Usage
 - make (ran in ComputerNetworksProject01 directory): creates ./client/mycal and ./server/mycalserver executables
-- ./mycal CalendarName action -> data for action <- (ran under lient subdirectory)
+- ./mycal CalendarName action -> data for action <- (ran under client subdirectory)
 - ./mycalserver (ran under server subdirectory)
 - make clean: removes executables 
         
