@@ -16,6 +16,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
+#include "cJSON.h"
 
 #define BACKLOG 10   // how many pending connections queue will hold
 
