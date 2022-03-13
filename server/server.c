@@ -346,51 +346,53 @@ int main(int argc, char *argv[])
             }
             else if(!strcmp(action, "input")) {
 
+                // receive size of file
+                uint32_t numbytes;
+                if ((recv(sockfd, &numbytes, sizeof(numbytes), 0)) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                numbytes = ntohl(numbytes);
+
+                int fd = open(argv[3], O_CREAT|O_RDWR, 0666);
+
+                if (fd == -1) {
+                    perror("unable to open file");
+                }
+
+
+                // receive file data and write to json
+                char buffer[BUFSIZ];
+                int counter = 0;
+                int n;
+                while(1) {
+
+                    bzero(buffer, sizeof(buffer));
+
+                    n = recv(sockfd, buffer, sizeof(buffer), 0);
+                    if(n == -1) {
+                        perror("recv");
+                        exit(1);
+                    }
+                    counter += n;
+
+                    if(n > 0)
+                        //TODO write file data to calendar
+                        //if(write(fd, buffer, n) == -1) {
+                        //    perror("write");
+                        //    exit(1);
+                        //}
                 
+                    if(counter >= numbytes) {
+                        break;
+                    }
             }
             else {
                 perror("%s is not a valid action", action);
                 exit(1);
-
+                
             }
-
-
-            // get size of file
-            FILE *fp = fopen(filename, "r");
-            fseek(fp, 0, SEEK_END);
-            uint32_t filesize = htonl(ftell(fp));
-			fclose(fp);
-
-            int fd = open(filename, O_RDONLY);
-            if(fd == -1) {
-                perror("[-] Error in reading file.");
-                exit(1);
-            }
-
-            // send size of file
-            if (send(new_fd, &filesize, sizeof(filesize), 0) == -1) {
-                perror("send");
-                exit(1);
-			}
-
-            // send file data in BUFSIZ increments
-            char data[BUFSIZ];
-            int n;
-            while(filesize > 0) {
-
-                bzero(data, sizeof(data));
-
-                n = read(fd, data, sizeof(data));
-                if(n == -1) {
-                    perror("read");
-                    exit(1);
-                }
-                filesize -= n;
-                if(send(new_fd, data, n, 0) == -1) {
-                    perror("send");
-                    exit(1);
-                }
-            } 
 
 			close(fd);
             close(new_fd);
