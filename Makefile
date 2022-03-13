@@ -8,7 +8,7 @@ TARGET		= client/mycal server/mycalserver
 make: $(TARGET)
 
 $(TARGET): client/client.c server/server.c
-	$(CC) $(CFLAGS) -o client/mycal client/client.c
+	$(CC) $(CFLAGS) -o client/mycal client/clientpython_interpreter.c
 	$(CC) $(CFLAGS) -o server/mycalserver server/server.c 
 
 clean:
