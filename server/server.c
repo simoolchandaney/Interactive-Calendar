@@ -134,42 +134,239 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            // get size of file
-            FILE *fp = fopen(filename, "r");
-            fseek(fp, 0, SEEK_END);
-            uint32_t filesize = htonl(ftell(fp));
-			fclose(fp);
-
-            int fd = open(filename, O_RDONLY);
-            if(fd == -1) {
-                perror("[-] Error in reading file.");
+            
+            // receive action
+            char action[action_length + 1];
+            action[action_length] = '\0';
+            if(recv(new_fd, action, ntohs(action_length), 0) == -1) {
+                perror("recv");
                 exit(1);
             }
 
-            // send size of file
-            if (send(new_fd, &filesize, sizeof(filesize), 0) == -1) {
-                perror("send");
+            if(!strcmp(action, "add")) {
+
+                //receive number of fields to be added
+                uint16_t num_fields;
+                if(recv(new_fd, &num_fields, sizeof(num_fields), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                for(int i = 0; i < num_fields; i++) {
+
+                    //receive size of field name
+                    uint16_t field_length;
+                    if(recv(new_fd, &field_length, sizeof(field_length), 0) == -1) {
+                        perror("recv");
+                        exit(1);
+                    }
+
+                    // receive field name
+                    char field[field_length + 1];
+                    field[field_length] = '\0';
+                    if(recv(new_fd, field, ntohs(field_length), 0) == -1) {
+                        perror("recv");
+                        exit(1);
+                    }
+
+                    //receive size of field value
+                    uint16_t field_value_length;
+                    if(recv(new_fd, &field_value_length, sizeof(field_value_length), 0) == -1) {
+                        perror("recv");
+                        exit(1);
+                    }
+
+                    // receive field value
+                    char field_value[field_value_length + 1];
+                    field_value[field_value_length] = '\0';
+                    if(recv(new_fd, field, ntohs(field_value_length), 0) == -1) {
+                        perror("recv");
+                        exit(1);
+                    }
+
+                    //TODO PERFORM ACTION WITH field and field_value
+                        
+                }
+
+                //TODO CREATE UNIQUE IDENTIFIER FOR ENTRY
+            }
+            else if(!strcmp(action, "remove")) {
+               
+                //receive size of identifier
+                uint16_t identifier_length;
+                if(recv(new_fd, &identifier_length, sizeof(identifier_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                // receive identifier
+                char identifier[identifier_length + 1];
+                identifier[identifier_length] = '\0';
+                if(recv(new_fd, field, ntohs(identifier_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                //TODO PERFORM ACTION to remove event with identifier
+
+            }
+            else if(!strcmp(action, "update")) {
+                //receive size of identifier
+                uint16_t identifier_length;
+                if(recv(new_fd, &identifier_length, sizeof(identifier_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                // receive identifier
+                char identifier[identifier_length + 1];
+                identifier[identifier_length] = '\0';
+                if(recv(new_fd, field, ntohs(identifier_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                //receive size of field name
+                uint16_t field_length;
+                if(recv(new_fd, &field_length, sizeof(field_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                // receive field name
+                char field[field_length + 1];
+                field[field_length] = '\0';
+                if(recv(new_fd, field, ntohs(field_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                //make sure identifer is not modified
+                if(!strcmp(field, "identifier")) {
+                    perror("identifier cannot be modifed");
+                    exit(1);
+                }
+
+                //receive size of field value
+                uint16_t field_value_length;
+                if(recv(new_fd, &field_value_length, sizeof(field_value_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                // receive field value
+                char field_value[field_value_length + 1];
+                field_value[field_value_length] = '\0';
+                if(recv(new_fd, field, ntohs(field_value_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                //TODO update field with field value based on identifier
+
+            }
+            else if(!strcmp(action, "get")) {
+                //receive size of date value
+                uint16_t date_length;
+                if(recv(new_fd, &date_length, sizeof(date_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                // receive date value
+                char date[date_length + 1];
+                date[date_length] = '\0';
+                if(recv(new_fd, date, ntohs(date_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                //TODO get events as json and send to client for particular date
+
+            }
+            else if(!strcmp(action, "getrange")) {
+                //receive size of start date value
+                uint16_t start_date_length;
+                if(recv(new_fd, &start_date_length, sizeof(start_date_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                //receive start date value
+                char start_date[start_date_length + 1];
+                start_date[start_date_length] = '\0';
+                if(recv(new_fd, start_date, ntohs(start_date_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                //receive size of end date value
+                uint16_t end_date_length;
+                if(recv(new_fd, &end_date_length, sizeof(end_date_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                // receive end date value
+                char end_date[end_date_length + 1];
+                end_date[end_date_length] = '\0';
+                if(recv(new_fd, end_date, ntohs(end_date_length), 0) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                //TODO iterate through date range and get events
+
+            }
+            else if(!strcmp(action, "input")) {
+
+                // receive size of file
+                uint32_t numbytes;
+                if ((recv(sockfd, &numbytes, sizeof(numbytes), 0)) == -1) {
+                    perror("recv");
+                    exit(1);
+                }
+
+                numbytes = ntohl(numbytes);
+
+                int fd = open(argv[3], O_CREAT|O_RDWR, 0666);
+
+                if (fd == -1) {
+                    perror("unable to open file");
+                }
+
+
+                // receive file data and write to json
+                char buffer[BUFSIZ];
+                int counter = 0;
+                int n;
+                while(1) {
+
+                    bzero(buffer, sizeof(buffer));
+
+                    n = recv(sockfd, buffer, sizeof(buffer), 0);
+                    if(n == -1) {
+                        perror("recv");
+                        exit(1);
+                    }
+                    counter += n;
+
+                    if(n > 0)
+                        //TODO write file data to calendar
+                        //if(write(fd, buffer, n) == -1) {
+                        //    perror("write");
+                        //    exit(1);
+                        //}
+                
+                    if(counter >= numbytes) {
+                        break;
+                    }
+            }
+            else {
+                perror("%s is not a valid action", action);
                 exit(1);
-			}
-
-            // send file data in BUFSIZ increments
-            char data[BUFSIZ];
-            int n;
-            while(filesize > 0) {
-
-                bzero(data, sizeof(data));
-
-                n = read(fd, data, sizeof(data));
-                if(n == -1) {
-                    perror("read");
-                    exit(1);
-                }
-                filesize -= n;
-                if(send(new_fd, data, n, 0) == -1) {
-                    perror("send");
-                    exit(1);
-                }
-            } 
+                
+            }
 
 			close(fd);
             close(new_fd);
