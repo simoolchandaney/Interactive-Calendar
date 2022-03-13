@@ -1,11 +1,12 @@
 import socket                   # Import socket module
+import sys
 
 s = socket.socket()             # Create a socket object
 host = socket.gethostname()     # Get local machine name
-port = 60000                    # Reserve a port for your service.
+port = 41999                    # Reserve a port for your service.
 
 s.connect((host, port))
-s.send("Hello server!")
+s.send(sys.argv[1:])
 
 with open('received_file', 'wb') as f:
     print 'file opened'
