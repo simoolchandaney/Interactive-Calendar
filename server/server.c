@@ -15,6 +15,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <json-c>
 
 #define BACKLOG 10   // how many pending connections queue will hold
 
@@ -153,6 +154,14 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
+            //open calendar
+            int fd = fopen(strcat(strcat("data/", calendar_name), ".json"), O_CREAT|O_RDWR, 0666);
+
+            if(fd == -1) {
+                perror("unable to open file");
+            }
+
+
             //receive size of action name
             uint16_t action_length;
             if(recv(new_fd, &action_length, sizeof(action_length), 0) == -1) {
@@ -169,6 +178,7 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
+            
             if(!strcmp(action, "add")) {
 
                 //receive number of fields to be added
