@@ -1,5 +1,6 @@
 /*
 ** server.c -- a stream socket server demo
+    Ian Havenaar, Simran Moolchandaney, Jacob Schwartz
 */
 
 #include <stdio.h>
@@ -15,27 +16,8 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
-#include <json-c>
 
 #define BACKLOG 10   // how many pending connections queue will hold
-
-void set_size(uint16_t* size) {
-    if(recv(new_fd, &size, sizeof(size), 0) == -1) {
-        perror("recv");
-        exit(1);
-     }
-}
-
-char* get_value(uint16_t size) {
-    // receive field name
-    char value[size + 1];
-    value[size] = '\0';
-    if(recv(new_fd, value, ntohs(size), 0) == -1) {
-        perror("recv");
-        exit(1);
-    }
-    return value;
-}
 
 void sigchld_handler(int s)
 {
@@ -138,21 +120,13 @@ int main(int argc, char *argv[])
         if (!fork()) { // this is the child process
             close(sockfd); // child doesn't need the listener
 
-            //receive size of calendar name
-            uint16_t calendar_name_length;
-            if(recv(new_fd, &calendar_name_length, sizeof(calendar_name_length), 0) == -1) {
+            // receive size of file name
+            uint16_t file_name_length;
+            if(recv(new_fd, &file_name_length, sizeof(file_name_length), 0) == -1) {
                 perror("recv");
                 exit(1);
             }
 
-            
-            // receive calendar name
-            char calendar_name[calendar_name_length + 1];
-            calendar_name[calendar_name_length] = '\0';
-            if(recv(new_fd, calendar_name, ntohs(calendar_name_length), 0) == -1) {
-                perror("recv");
-                exit(1);
-            }
 
             //open calendar
             int fd = fopen(strcat(strcat("data/", calendar_name), ".json"), O_CREAT|O_RDWR, 0666);
