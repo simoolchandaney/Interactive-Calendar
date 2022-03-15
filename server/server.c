@@ -16,7 +16,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
-#include "cJSON.h"
+#include <cJSON.h>
 #include <time.h>
 
 #define BACKLOG 10   // how many pending connections queue will hold
@@ -295,6 +295,14 @@ int main(int argc, char *argv[])
                     }
                 }
 
+                //write json object back to file
+                char *calendar_string = cJSON_Print(calendar);
+
+                if(fwrite(calendar_string, sizeof(calendar_string), 1, fp) == -1) {
+                    perror("unable to write calendar");
+                    exit(1);
+                }
+
             }
             else if(!strcmp(action, "update")) {
                 //receive size of identifier
@@ -348,7 +356,24 @@ int main(int argc, char *argv[])
                     exit(1);
                 }
 
+
                 //TODO update field with field value based on identifier
+                int calendar_size = cJSON_GetArraySize(calendar);
+                for(int i = 0; i < calendar_size; i++) {
+                    cJSON *entry = cJSON_GetArrayItem(calendar, i);
+                    cJSON *curr_identifier = getObjectItem(entry, "identifier");
+                    if (!strcmp(identifier, curr_identifier)) {
+                        cJSON_ReplaceItemInObject(entry, field, field_value);
+                    }
+                }
+
+                //write json object back to file
+                char *calendar_string = cJSON_Print(calendar);
+
+                if(fwrite(calendar_string, sizeof(calendar_string), 1, fp) == -1) {
+                    perror("unable to write calendar");
+                    exit(1);
+                }
 
             }
             else if(!strcmp(action, "get")) {
