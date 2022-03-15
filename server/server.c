@@ -16,7 +16,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
-#include <cJSON.h>
+#include "cJSON.h"
 #include <time.h>
 
 #define BACKLOG 10   // how many pending connections queue will hold
@@ -136,31 +136,31 @@ int main(int argc, char *argv[])
             }
 
             // receive calendar name
-            char calendar_name[caelndar_length + 1];
-            calendar_length[calendar_length] = '\0';
+            char calendar_name[calendar_length + 1];
+            calendar_name[calendar_length] = '\0';
             if(recv(new_fd, calendar_name, ntohs(calendar_length), 0) == -1) {
                 perror("recv");
                 exit(1);
             }
 
             //open calendar and put JSON in cal_JSON
-            FILE *fp = fopen(strcat(strcat("data/", calendar_name), ".json"), O_CREAT|O_RDWR, 0666);
+            FILE *fp = fopen(strcat(strcat("data/", calendar_name), ".json"), "w");
 
-            if(fp == -1) {
+            if(fp == NULL) {
                 //need to create JSON file
-                char *date = NULL;
-                char *time = NULL;
-                uint32_t duration = NULL;
-                char *name = NULL;
-                char *description = NULL;
-                char *location = NULL;
-                uint32_t identifier_number = (rand() % (999 - 100 + 1)) + 100; //create unique 3 digit identifier
+                cJSON *date = NULL;
+                cJSON *time = NULL;
+                cJSON *duration = NULL;
+                cJSON *name = NULL;
+                cJSON *description = NULL;
+                cJSON *location = NULL;
+                cJSON *identifier_number = cJSON_CreateNumber((rand() % (999 - 100 + 1)) + 100); //create unique 3 digit identifier
 
                 cJSON *new_calendar = cJSON_CreateArray();
                 cJSON *entry = cJSON_CreateObject();
 
 
-                if(new_calendar == NULL || entries == NULL ||entry == NULL) {
+                if(new_calendar == NULL || entry == NULL) {
                     perror("unable to write calendar.");
                     exit(1);
                 }
@@ -253,7 +253,7 @@ int main(int argc, char *argv[])
                     }
 
                     //TODO error message if field value does not exits
-                    cJSON_AddItemToObject(entry, field, field_value);
+                    cJSON_AddStringToObject(entry, field, field_value);
                 }
 
                 cJSON_AddItemToArray(calendar, entry);
@@ -279,7 +279,7 @@ int main(int argc, char *argv[])
                 // receive identifier
                 char identifier[identifier_length + 1];
                 identifier[identifier_length] = '\0';
-                if(recv(new_fd, field, ntohs(identifier_length), 0) == -1) {
+                if(recv(new_fd, identifier, ntohs(identifier_length), 0) == -1) {
                     perror("recv");
                     exit(1);
                 }
@@ -289,8 +289,8 @@ int main(int argc, char *argv[])
                 int calendar_size = cJSON_GetArraySize(calendar);
                 for(int i = 0; i < calendar_size; i++) {
                     cJSON *entry = cJSON_GetArrayItem(calendar, i);
-                    cJSON *curr_identifier = getObjectItem(entry, "identifier");
-                    if (!strcmp(identifier, curr_identifier)) {
+                    cJSON *curr_identifier = cJSON_GetObjectItem(entry, "identifier");
+                    if (!strcmp(identifier, cJSON_Print(curr_identifier))) {
                         cJSON_DeleteItemFromArray(calendar, i);
                     }
                 }
@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
                 // receive identifier
                 char identifier[identifier_length + 1];
                 identifier[identifier_length] = '\0';
-                if(recv(new_fd, field, ntohs(identifier_length), 0) == -1) {
+                if(recv(new_fd, identifier, ntohs(identifier_length), 0) == -1) {
                     perror("recv");
                     exit(1);
                 }
@@ -361,9 +361,9 @@ int main(int argc, char *argv[])
                 int calendar_size = cJSON_GetArraySize(calendar);
                 for(int i = 0; i < calendar_size; i++) {
                     cJSON *entry = cJSON_GetArrayItem(calendar, i);
-                    cJSON *curr_identifier = getObjectItem(entry, "identifier");
-                    if (!strcmp(identifier, curr_identifier)) {
-                        cJSON_ReplaceItemInObject(entry, field, field_value);
+                    cJSON *curr_identifier = cJSON_GetObjectItem(entry, "identifier");
+                    if (!strcmp(identifier, cJSON_Print(curr_identifier))) {
+                        cJSON_ReplaceItemInObject(entry, field, cJSON_CreateString(field_value));
                     }
                 }
 
@@ -428,7 +428,7 @@ int main(int argc, char *argv[])
 
                 //TODO iterate through date range and get events
 
-            }
+            }/*
             else if(!strcmp(action, "input")) {
 
                 // receive size of file
@@ -462,19 +462,21 @@ int main(int argc, char *argv[])
                     }
                     counter += n;
 
-                    if(n > 0)
+                    if(n > 0){
                         //TODO write file data to calendar
                         //if(write(fd, buffer, n) == -1) {
                         //    perror("write");
                         //    exit(1);
                         //}
+                        break;
+                    }
                 
                     if(counter >= numbytes) {
                         break;
                     }
-            }
+            }*/
             else {
-                perror("%s is not a valid action", action);
+                perror("not a valid action");
                 exit(1);
             }
 
@@ -487,12 +489,12 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            cJSON_AddItemToObject(response, "command", action);
-            cJSON_AddItemToObject(response, "calendar", calendar_name);
-            cJSON_AddItemToObject(response, "identifier", success ? identifier_number: "XXXX");
-            cJSON_AddItemToObject(response, "success", success ? "True": "False");
-            cJSON_AddItemToObject(response, "error", error_message); //TODO get error messages
-            cJSON_AddItemToObject(response, "data", data);
+            cJSON_AddItemToObject(response, "command", cJSON_CreateString(action));
+            cJSON_AddItemToObject(response, "calendar", cJSON_CreateString(calendar_name));
+            //cJSON_AddItemToObject(response, "identifier", success ? identifier_number: "XXXX");
+            //cJSON_AddItemToObject(response, "success", success ? "True": "False");
+            //cJSON_AddItemToObject(response, "error", error_message); //TODO get error messages
+            //cJSON_AddItemToObject(response, "data", data);
 
             //TODO send response json object to client
 
@@ -510,12 +512,12 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-			close(fd);
+			fclose(fp);
             close(new_fd);
             exit(0);
         }
         close(new_fd);  // parent doesn't need this
+    
     }
-
     return 0;
 }
