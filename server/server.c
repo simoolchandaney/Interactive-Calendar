@@ -285,12 +285,15 @@ int main(int argc, char *argv[])
                 }
 
                 //TODO PERFORM ACTION to remove event with identifier
+                //TODO add error message if identifier does not exist
                 int calendar_size = cJSON_GetArraySize(calendar);
                 for(int i = 0; i < calendar_size; i++) {
                     cJSON *entry = cJSON_GetArrayItem(calendar, i);
-                    cJSON *
+                    cJSON *curr_identifier = getObjectItem(entry, "identifier");
+                    if (!strcmp(identifier, curr_identifier)) {
+                        cJSON_DeleteItemFromArray(calendar, i);
+                    }
                 }
-                cJSON_DeleteItemFromArray(calendar, calendar_size -1);
 
             }
             else if(!strcmp(action, "update")) {
