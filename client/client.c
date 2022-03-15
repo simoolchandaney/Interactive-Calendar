@@ -27,15 +27,6 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-// used to calculate time intervals 
-double timestamp() {
-    struct timeval current_time;
-    if (gettimeofday(&current_time, NULL) < 0) {
-        return time(NULL);
-    }
-    return (double) current_time.tv_sec + ((double) current_time.tv_usec / 1000000.0);
-}
-
 int main(int argc, char *argv[])
 {
     int sockfd;
@@ -46,8 +37,8 @@ int main(int argc, char *argv[])
 	char *ip = "129.74.152.73";
     char *port = "41999";
 
-    if (argc != 4) {
-        fprintf(stderr,"usage: client hostname\n");
+    if (argc < 4) {
+        fprintf(stderr,"usage: CalendarName action -> data for action <-\n");
         exit(1);
     }
 
@@ -55,8 +46,7 @@ int main(int argc, char *argv[])
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
 
-    // argv[1] - IP
-    // argv[2] - port number
+
     if ((rv = getaddrinfo(ip, port, &hints, &servinfo)) != 0) {
         fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
         return 1;
@@ -85,52 +75,204 @@ int main(int argc, char *argv[])
     inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
     printf("client: connecting to %s\n", s);
     freeaddrinfo(servinfo); // all done with this structure
-
-    /*
-    //EC2 filter IPs
-	char temp1[100];
-	char temp2[100];
-	char temp3[100];
-
-	strncpy(temp1, &ip[0], 7);
-	strncpy(temp2, &ip[0], 4);
-	strncpy(temp3, &ip[0], 8);
-
-	if(!(strcmp(temp1, "129.74.") == 0 || strcmp(temp2, "127.") == 0 || strcmp(temp3, "192.168.") == 0)) {
-		perror("connection from invalid IP");
-		exit(1);
-	}
-    */
   
-    char *file_name = argv[3];
-    uint16_t file_name_sz = htons(strlen(file_name));
+    char *calendar_name = argv[1];
+    uint16_t calenadr_name_sz = htons(strlen(calendar_name));
 	double t_init_f = timestamp(); // start timer
 
-    // send size of file name
-    if ((send(sockfd, &file_name_sz, sizeof(file_name_sz), 0)) == -1) {
+    // send size of calendar name
+    if ((send(sockfd, &calenadr_name_sz, sizeof(calenadr_name_sz), 0)) == -1) {
         perror("recv");
         exit(1);  
     }
 
-    // send file name to server 
-    if ((send(sockfd, file_name, strlen(file_name), 0)) == -1) {
+    // send calendar name to server 
+    if ((send(sockfd, calendar_name, strlen(calendar_name), 0)) == -1) {
         perror("recv");
         exit(1);  
     }
 
-    // receive size of file
+    char *action_name = argv[2];
+    uint16_t action_name_sz = htons(strlen(action_name));
+
+    // send size of action
+    if ((send(sockfd, &action_name_sz, sizeof(action_name_sz), 0)) == -1) {
+        perror("recv");
+        exit(1);  
+    }
+
+    // send action 
+    if ((send(sockfd, action_name, strlen(action_name), 0)) == -1) {
+        perror("recv");
+        exit(1);  
+    }
+
+
+
+    if(!strcmp(action_name, "add")) {
+
+        // count num of fields to be added
+        uint16_t num_fields = 0;
+        for(int i = 3; i < argc; i++) {
+            num_fields++;
+        }
+
+        // send num_fields
+        if ((send(sockfd, num_fields, sizeof(num_fields), 0)) == -1) {
+            perror("recv");
+            exit(1);  
+        }
+
+        for(int j = 3; j < argc; j++) {
+
+            char *field = argv[j];
+            uint16_t field_sz = htons(strlen(field));
+
+            // send size of field value
+            if ((send(sockfd, field_sz, sizeof(field_sz), 0)) == -1) {
+                perror("recv");
+                exit(1);  
+            }
+
+            // send field value
+            if ((send(sockfd, field, strlen(field), 0)) == -1) {
+                perror("recv");
+                exit(1);  
+            }
+        }
+
+    }
+
+    else if(!strcmp(action_name, "remove")) {
+               
+        char *identifier = argv[3];
+        uint16_t identifier_sz = htons(strlen(identifier));
+        
+        // send size of identifier
+        if ((send(sockfd, identifier_sz, sizeof(identifier_sz), 0)) == -1) {
+                perror("recv");
+                exit(1);  
+        }
+
+        // send identifier
+        if ((send(sockfd, identifier, strlen(identifier), 0)) == -1) {
+                perror("recv");
+                exit(1);  
+        }
+
+    }
+
+    else if(!strcmp(action_name, "update")) {
+
+        char *identfier = argv[3];
+        uint16_t identifier_sz = htons(strlen(identifier));
+
+        // send size of identifier
+        if ((send(sockfd, identifier_sz, sizeof(identifier_sz), 0)) == -1) {
+                perror("recv");
+                exit(1);  
+        }
+
+        // send identifier
+        if ((send(sockfd, identifier, strlen(identifier), 0)) == -1) {
+                perror("recv");
+                exit(1);  
+        }
+
+        for(int i = 4; i < argc; i++) {
+            char *field = argv[i];
+            uint16_t field_sz = htons(strlen(field));
+            if ((send(sockfd, field_sz, sizeof(field_sz), 0)) == -1) {
+                perror("recv");
+                exit(1);  
+            }
+            if ((send(sockfd, field, strlen(field), 0)) == -1) {
+                perror("recv");
+                exit(1);  
+            }
+
+        }
+
+    }
+
+    else if(!strcmp(action_name, "get")) {
+        char *date = argv[3];
+        uint16_t date_sz = htons(strlen(date));
+        if ((send(sockfd, date_sz, sizeof(date_sz), 0)) == -1) {
+            perror("recv");
+            exit(1);  
+        }
+
+        if ((send(sockfd, date, strlen(date), 0)) == -1) {
+            perror("recv");
+            exit(1);  
+        }
+
+    }
+
+    else if(!strcmp(action_name, "getrange")) {
+        char *start_date = argv[3];
+        uint16_t start_date_sz = htons(strlen(start_date));
+
+        // send start_data size
+        if ((send(sockfd, start_date_sz, sizeof(start_date_sz), 0)) == -1) {
+            perror("recv");
+            exit(1);  
+        }
+
+        // send start_date
+        if ((send(sockfd, start_date, strlen(start_date), 0)) == -1) {
+            perror("recv");
+            exit(1);  
+        }
+        
+        char *end_date = argv[4];
+        uint16_t end_date_sz = htons(strlen(end_date));
+
+        // send end_date size
+        if ((send(sockfd, end_date_sz, sizeof(end_date_sz), 0)) == -1) {
+            perror("recv");
+            exit(1);  
+        }
+
+        // send end_date
+        if ((send(sockfd, end_date, strlen(end_date), 0)) == -1) {
+            perror("recv");
+            exit(1);  
+        }
+
+    }
+
+    else if(!strcmp(action_name, "input")) {
+        char *input_file_name = argv[3];
+        uint16_t input_file_name_sz = htons(strlen(input_file_name));
+
+        // send input size
+        if ((send(sockfd, input_file_name_sz, sizeof(input_file_name_sz), 0)) == -1) {
+            perror("recv");
+            exit(1);  
+        }
+
+        // send end_date
+        if ((send(sockfd, input_file_name, strlen(input_file_name), 0)) == -1) {
+            perror("recv");
+            exit(1);  
+        }
+
+    }
+
+    else {
+        fprintf(stderr,"usage: CalendarName action -> data for action <-\n");
+        exit(1);
+    }
+
+    // receive size of json file
     uint32_t numbytes;
     if ((recv(sockfd, &numbytes, sizeof(numbytes), 0)) == -1) {
 			perror("recv");
 			exit(1);
 	}
     numbytes = ntohl(numbytes);
-
-	int fd = open(argv[3], O_CREAT|O_RDWR, 0666);
-
-    if (fd == -1) {
-        perror("unable to open file");
-    }
 
 
     // receive file data and write to file
@@ -160,14 +302,6 @@ int main(int argc, char *argv[])
 	}
 	close(sockfd);
 	close(fd);
-
-    // end of transmission time
-	double t_final_f = timestamp();
-
-    // statistics calculations and reporting 
-	double time_elapsed = t_final_f - t_init_f;
-	double speed = (numbytes * (0.000001)) / (time_elapsed) ;
-	printf("%d bytes transferred over %lf seconds for a speed of %lf MB/s\n", numbytes, time_elapsed, speed);
 
     return 0;
 }
