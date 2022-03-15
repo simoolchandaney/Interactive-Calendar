@@ -78,7 +78,6 @@ int main(int argc, char *argv[])
   
     char *calendar_name = argv[1];
     uint16_t calenadr_name_sz = htons(strlen(calendar_name));
-	double t_init_f = timestamp(); // start timer
 
     // send size of calendar name
     if ((send(sockfd, &calenadr_name_sz, sizeof(calenadr_name_sz), 0)) == -1) {
@@ -262,7 +261,7 @@ int main(int argc, char *argv[])
     }
 
     else {
-        fprintf(stderr,"usage: CalendarName action -> data for action <-\n");
+        printf("Invalid command. Please try again.\n");
         exit(1);
     }
 
@@ -275,7 +274,7 @@ int main(int argc, char *argv[])
     numbytes = ntohl(numbytes);
 
 
-    // receive file data and write to file
+    // receive json file data and write to json file
     char buffer[BUFSIZ];
     int counter = 0;
     int n;
@@ -302,6 +301,5 @@ int main(int argc, char *argv[])
 	}
 	close(sockfd);
 	close(fd);
-
     return 0;
 }
