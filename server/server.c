@@ -156,8 +156,7 @@ int main(int argc, char *argv[])
                 char *location = NULL;
                 uint32_t identifier_number = (rand() % (999 - 100 + 1)) + 100; //create unique 3 digit identifier
 
-                cJSON *new_calendar = cJSON_CreateObject();
-                cJSON *entries = cJSON_CreateArray();
+                cJSON *new_calendar = cJSON_CreateArray();
                 cJSON *entry = cJSON_CreateObject();
 
 
@@ -174,19 +173,25 @@ int main(int argc, char *argv[])
                 cJSON_AddItemToObject(entry, "location", location);
                 cJSON_AddItemToObject(entry, "indetifier_number", identifier_number);
 
-                //add new null entry to entries array
-                cJSON_AddItemToArray(entries, entry);
+                //add new null entry to new_calendar
+                cJSON_AddItemToArray(new_calendar, entry);
 
-                //add entries array to calendar
-                cJSON_AddItemToObject(new_calendar, "entries", entries);
+                char *new_calendar_string = cJSON_Print(new_calendar);
 
-                
-
+                if(fwrite(new_calendar_string, sizeof(new_calendar_string), 1, fp) == -1) {
+                    perror("unable to write calendar");
+                    exit(1);
+                }
             }
 
-            char cal_JSON[BUFSIZ];
-            fread(buffer, cal_JSON, 1, fp);
-            fclose(fp);
+            //parse json file for calendar into cJSON object
+            char calendar_buffer[BUFSIZ];
+            if(fread(calendar_buffer, BUFSIZ, 1, fp) == -1) {
+                perror("unable to read calendar");
+                exit(1);
+            }
+
+            cJSON *calendar = cJSON_Parse(calendar_buffer);
 
 
             //receive size of action name
@@ -196,7 +201,6 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            
             // receive action
             char action[action_length + 1];
             action[action_length] = '\0';
@@ -205,7 +209,6 @@ int main(int argc, char *argv[])
                 exit(1);
             }
 
-            
             if(!strcmp(action, "add")) {
 
                 //receive number of fields to be added
@@ -214,6 +217,8 @@ int main(int argc, char *argv[])
                     perror("recv");
                     exit(1);
                 }
+
+                cJSON *entry = cJSON_CreateObject();
 
                 for(int i = 0; i < num_fields; i++) {
 
@@ -247,12 +252,20 @@ int main(int argc, char *argv[])
                         exit(1);
                     }
 
-                    //TODO PERFORM ACTION WITH field and field_value
-                    //error message if field value does not exits
-                        
+                    //TODO error message if field value does not exits
+                    cJSON_AddItemToObject(entry, field, field_value);
                 }
 
-                //TODO CREATE UNIQUE IDENTIFIER FOR ENTRY
+                cJSON_AddItemToArray(calendar, entry);
+
+                //write json object back to file
+                char *calendar_string = cJSON_Print(calendar);
+
+                if(fwrite(calendar_string, sizeof(calendar_string), 1, fp) == -1) {
+                    perror("unable to write calendar");
+                    exit(1);
+                }
+
             }
             else if(!strcmp(action, "remove")) {
                
@@ -430,6 +443,8 @@ int main(int argc, char *argv[])
                 perror("%s is not a valid action", action);
                 exit(1);
             }
+
+            fclose(fp);
 
             //create response json
             cJSON *response = cJSON_CreateObject();
