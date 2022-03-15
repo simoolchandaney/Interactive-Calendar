@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
 {
     int sockfd;
     struct addrinfo hints, *servinfo, *p;
-	struct sockaddr_in *h;
+	// struct sockaddr_in *h;
     int rv;
     char s[INET6_ADDRSTRLEN];
 	char *ip = "129.74.152.73";
@@ -117,7 +117,7 @@ int main(int argc, char *argv[])
         }
 
         // send num_fields
-        if ((send(sockfd, num_fields, sizeof(num_fields), 0)) == -1) {
+        if ((send(sockfd, &num_fields, sizeof(num_fields), 0)) == -1) {
             perror("recv");
             exit(1);  
         }
@@ -128,7 +128,7 @@ int main(int argc, char *argv[])
             uint16_t field_sz = htons(strlen(field));
 
             // send size of field value
-            if ((send(sockfd, field_sz, sizeof(field_sz), 0)) == -1) {
+            if ((send(sockfd, &field_sz, sizeof(field_sz), 0)) == -1) {
                 perror("recv");
                 exit(1);  
             }
@@ -148,7 +148,7 @@ int main(int argc, char *argv[])
         uint16_t identifier_sz = htons(strlen(identifier));
         
         // send size of identifier
-        if ((send(sockfd, identifier_sz, sizeof(identifier_sz), 0)) == -1) {
+        if ((send(sockfd, &identifier_sz, sizeof(identifier_sz), 0)) == -1) {
                 perror("recv");
                 exit(1);  
         }
@@ -163,11 +163,11 @@ int main(int argc, char *argv[])
 
     else if(!strcmp(action_name, "update")) {
 
-        char *identfier = argv[3];
+        char *identifier = argv[3];
         uint16_t identifier_sz = htons(strlen(identifier));
 
         // send size of identifier
-        if ((send(sockfd, identifier_sz, sizeof(identifier_sz), 0)) == -1) {
+        if ((send(sockfd, &identifier_sz, sizeof(identifier_sz), 0)) == -1) {
                 perror("recv");
                 exit(1);  
         }
@@ -181,7 +181,7 @@ int main(int argc, char *argv[])
         for(int i = 4; i < argc; i++) {
             char *field = argv[i];
             uint16_t field_sz = htons(strlen(field));
-            if ((send(sockfd, field_sz, sizeof(field_sz), 0)) == -1) {
+            if ((send(sockfd, &field_sz, sizeof(field_sz), 0)) == -1) {
                 perror("recv");
                 exit(1);  
             }
@@ -197,7 +197,7 @@ int main(int argc, char *argv[])
     else if(!strcmp(action_name, "get")) {
         char *date = argv[3];
         uint16_t date_sz = htons(strlen(date));
-        if ((send(sockfd, date_sz, sizeof(date_sz), 0)) == -1) {
+        if ((send(sockfd, &date_sz, sizeof(date_sz), 0)) == -1) {
             perror("recv");
             exit(1);  
         }
@@ -214,7 +214,7 @@ int main(int argc, char *argv[])
         uint16_t start_date_sz = htons(strlen(start_date));
 
         // send start_data size
-        if ((send(sockfd, start_date_sz, sizeof(start_date_sz), 0)) == -1) {
+        if ((send(sockfd, &start_date_sz, sizeof(start_date_sz), 0)) == -1) {
             perror("recv");
             exit(1);  
         }
@@ -229,7 +229,7 @@ int main(int argc, char *argv[])
         uint16_t end_date_sz = htons(strlen(end_date));
 
         // send end_date size
-        if ((send(sockfd, end_date_sz, sizeof(end_date_sz), 0)) == -1) {
+        if ((send(sockfd, &end_date_sz, sizeof(end_date_sz), 0)) == -1) {
             perror("recv");
             exit(1);  
         }
@@ -247,7 +247,7 @@ int main(int argc, char *argv[])
         uint16_t input_file_name_sz = htons(strlen(input_file_name));
 
         // send input size
-        if ((send(sockfd, input_file_name_sz, sizeof(input_file_name_sz), 0)) == -1) {
+        if ((send(sockfd, &input_file_name_sz, sizeof(input_file_name_sz), 0)) == -1) {
             perror("recv");
             exit(1);  
         }
@@ -273,6 +273,11 @@ int main(int argc, char *argv[])
 	}
     numbytes = ntohl(numbytes);
 
+	int fd = open("response.json", O_CREAT|O_RDWR, 0666);
+
+    if (fd == -1) {
+        perror("unable to open file");
+    }
 
     // receive json file data and write to json file
     char buffer[BUFSIZ];
