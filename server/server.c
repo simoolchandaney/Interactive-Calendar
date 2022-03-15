@@ -16,6 +16,8 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <cJSON.h>
+#include <time.h>
 
 #define BACKLOG 10   // how many pending connections queue will hold
 
@@ -46,6 +48,8 @@ int main(int argc, char *argv[])
     int yes=1;
     char s[INET6_ADDRSTRLEN];
     int rv;
+
+    srand(time(NULL)); // for identifier
 
     if (argc != 2) {
         fprintf(stderr,"usage: server hostname\n");
@@ -120,20 +124,69 @@ int main(int argc, char *argv[])
         if (!fork()) { // this is the child process
             close(sockfd); // child doesn't need the listener
 
-            // receive size of file name
-            uint16_t file_name_length;
-            if(recv(new_fd, &file_name_length, sizeof(file_name_length), 0) == -1) {
+
+            //check for errors when client asks for calendar stuff
+            char *error_message;
+            
+            //receive size of calendar name
+            uint16_t calendar_length;
+            if(recv(new_fd, &calendar_length, sizeof(calendar_length), 0) == -1) {
                 perror("recv");
                 exit(1);
             }
 
-
-            //open calendar
-            int fd = fopen(strcat(strcat("data/", calendar_name), ".json"), O_CREAT|O_RDWR, 0666);
-
-            if(fd == -1) {
-                perror("unable to open file");
+            // receive calendar name
+            char calendar_name[caelndar_length + 1];
+            calendar_length[calendar_length] = '\0';
+            if(recv(new_fd, calendar_name, ntohs(calendar_length), 0) == -1) {
+                perror("recv");
+                exit(1);
             }
+
+            //open calendar and put JSON in cal_JSON
+            FILE *fp = fopen(strcat(strcat("data/", calendar_name), ".json"), O_CREAT|O_RDWR, 0666);
+
+            if(fp == -1) {
+                //need to create JSON file
+                char *date = NULL;
+                char *time = NULL;
+                uint32_t duration = NULL;
+                char *name = NULL;
+                char *description = NULL;
+                char *location = NULL;
+                uint32_t identifier_number = (rand() % (999 - 100 + 1)) + 100; //create unique 3 digit identifier
+
+                cJSON *new_calendar = cJSON_CreateObject();
+                cJSON *entries = cJSON_CreateArray();
+                cJSON *entry = cJSON_CreateObject();
+
+
+                if(new_calendar == NULL || entries == NULL ||entry == NULL) {
+                    perror("unable to write calendar.");
+                    exit(1);
+                }
+
+                cJSON_AddItemToObject(entry, "date", date);
+                cJSON_AddItemToObject(entry, "time", time);
+                cJSON_AddItemToObject(entry, "duration", duration);
+                cJSON_AddItemToObject(entry, "name", name);
+                cJSON_AddItemToObject(entry, "description", description);
+                cJSON_AddItemToObject(entry, "location", location);
+                cJSON_AddItemToObject(entry, "indetifier_number", identifier_number);
+
+                //add new null entry to entries array
+                cJSON_AddItemToArray(entries, entry);
+
+                //add entries array to calendar
+                cJSON_AddItemToObject(new_calendar, "entries", entries);
+
+                
+
+            }
+
+            char cal_JSON[BUFSIZ];
+            fread(buffer, cal_JSON, 1, fp);
+            fclose(fp);
 
 
             //receive size of action name
@@ -195,6 +248,7 @@ int main(int argc, char *argv[])
                     }
 
                     //TODO PERFORM ACTION WITH field and field_value
+                    //error message if field value does not exits
                         
                 }
 
@@ -251,7 +305,7 @@ int main(int argc, char *argv[])
                     exit(1);
                 }
 
-                //make sure identifer is not modified
+                //make sure identifier is not modified
                 if(!strcmp(field, "identifier")) {
                     perror("identifier cannot be modifed");
                     exit(1);
@@ -375,7 +429,36 @@ int main(int argc, char *argv[])
             else {
                 perror("%s is not a valid action", action);
                 exit(1);
-                
+            }
+
+            //create response json
+            cJSON *response = cJSON_CreateObject();
+            if(response == NULL) {
+                perror("JSON response could not be created");
+                exit(1);
+            }
+
+            cJSON_AddItemToObject(response, "command", action);
+            cJSON_AddItemToObject(response, "calendar", calendar_name);
+            cJSON_AddItemToObject(response, "identifier", success ? identifier_number: "XXXX");
+            cJSON_AddItemToObject(response, "success", success ? "True": "False");
+            cJSON_AddItemToObject(response, "error", error_message); //TODO get error messages
+            cJSON_AddItemToObject(response, "data", data);
+
+            //TODO send response json object to client
+
+            uint16_t response_size = htons(sizeof(response));//miracle if this is right
+
+            //send size of JSON
+            if((send(sockfd, &response_size, sizeof(response_size), 0)) == -1) {
+                perror("recv");
+                exit(1);
+            }
+
+            //send JSON, no way this actually works
+            if((send(sockfd, response, sizeof(response), 0)) == -1) {
+                perror("recv");
+                exit(1);
             }
 
 			close(fd);
