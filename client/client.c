@@ -34,7 +34,7 @@ int main(int argc, char *argv[])
 	// struct sockaddr_in *h;
     int rv;
     char s[INET6_ADDRSTRLEN];
-	char *ip = "129.74.152.73";
+	char *ip = "129.74.152.141";
     char *port = "41999";
 
     if (argc < 4) {
@@ -77,10 +77,10 @@ int main(int argc, char *argv[])
     freeaddrinfo(servinfo); // all done with this structure
   
     char *calendar_name = argv[1];
-    uint16_t calenadr_name_sz = htons(strlen(calendar_name));
+    uint16_t calendar_name_sz = htons(strlen(calendar_name));
 
     // send size of calendar name
-    if ((send(sockfd, &calenadr_name_sz, sizeof(calenadr_name_sz), 0)) == -1) {
+    if ((send(sockfd, &calenadr_name_sz, sizeof(calendar_name_sz), 0)) == -1) {
         perror("recv");
         exit(1);  
     }
