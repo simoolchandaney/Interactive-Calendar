@@ -16,7 +16,7 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
-#include "cJSON.h"
+#include "../cJSON.h"
 #include <time.h>
 
 #define BACKLOG 10   // how many pending connections queue will hold
@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
 
 
             //check for errors when client asks for calendar stuff
-            char *error_message;
+            //char *error_message;
             
             //receive size of calendar name
             uint16_t calendar_length;
