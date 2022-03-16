@@ -44,6 +44,163 @@ char *rec_data(int new_fd, uint16_t data_length) {
     return data;
 }
 
+void write_back_to_file(cJSON *calendar) {
+
+    FILE *fp = fopen(file_name, "w+");
+    char *calendar_string = cJSON_Print(calendar);
+    if(fwrite(calendar_string, 1, strlen(calendar_string), fp) == -1) {
+        perror("unable to write calendar");
+        exit(1);
+    }
+    fclose(fp);
+}
+
+char *add(cJSON *calendar, int new_fd) {
+
+    uint16_t num_fields = rec_data_sz(new_fd);
+
+    cJSON *entry = cJSON_CreateObject();
+
+    for(int i = 0; i < num_fields/2; i++) {
+
+        char *field = rec_data(new_fd, rec_data_sz(new_fd));
+        char *field_value = rec_data(new_fd, rec_data_sz(new_fd));
+
+        cJSON_AddStringToObject(entry, field, field_value);
+    }
+
+    cJSON *identifier_number = cJSON_CreateNumber((rand() % (9999999 - 1000000 + 1)) + 1000000); //create unique 3 digit identifier
+    cJSON_AddItemToObject(entry, "identifier", identifier_number);
+    cJSON_AddItemToArray(calendar, entry);
+
+    write_back_to_file(calendar);
+    
+    return "";
+}
+
+char *remove(cJSON *calendar, int new_fd) {
+
+    char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
+
+    //TODO PERFORM ACTION to remove event with identifier
+    //TODO add error message if identifier does not exist
+    int calendar_size = cJSON_GetArraySize(calendar);
+
+    for(int i = 0; i < calendar_size; i++) {
+        cJSON *entry = cJSON_GetArrayItem(calendar, i);
+        int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
+        if (atoi(identifier) == curr_identifier) {
+            cJSON_DeleteItemFromArray(calendar, i);
+        }
+    }
+
+    write_back_to_file(calendar);
+
+    return "";
+}
+
+char *update(cJSON *calendar, int new_fd) {
+    char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
+
+    char *field = rec_data(new_fd, rec_data_sz(new_fd));
+
+    //make sure identifier is not modified
+    if(!strcmp(field, "identifier")) {
+        perror("identifier cannot be modifed");
+        exit(1);
+    }
+
+    char *field_value = rec_data(new_fd, rec_data_sz(new_fd));
+
+
+    int calendar_size = cJSON_GetArraySize(calendar);
+    for(int i = 0; i < calendar_size; i++) {
+        cJSON *entry = cJSON_GetArrayItem(calendar, i);
+        int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
+        if (atoi(identifier) == curr_identifier) {
+            cJSON_ReplaceItemInObject(entry, field, cJSON_CreateString(field_value));
+        }
+    }
+
+    write_back_to_file(calendar);
+
+    return "";
+}
+
+char *get(cJSON *calendar, int new_fd) {
+    char *date = rec_data(new_fd, rec_data_sz(new_fd));
+    /*
+    //TODO get events as json and send to client for particular date
+    int calendar_size = cJSON_GetArraySize(calendar);
+    cJSON *get_events = cJSON_CreateObject();
+    cJSON *events = cJSON_CreateArray();
+
+    for(int i = 0; i < calendar_size; i++) {
+        cJSON *entry = cJSON_GetArrayItem(calendar, i);
+        cJSON *curr_date = cJSON_GetObjectItem(entry, "date");
+        if (!strcmp(date, cJSON_Print(curr_date))) {
+            cJSON *event_name = cJSON_GetObjectItem(entry, "name");
+            cJSON_AddItemToArray(events, event_name);
+        }
+    }
+
+    cJSON *num_events = cJSON_CreateNumber(cJSON_GetArraySize(events));
+    cJSON_AddItemToObject(get_events, "numevents", num_events);
+    cJSON_AddItemToObject(get_events, "data", events);
+    */
+
+}
+
+char *getrange(cJSON *calendar, int new_fd) {
+    char *start_date = rec_data(new_fd, rec_data_sz(new_fd));
+
+    char *end_date = rec_data(new_fd, rec_data_sz(new_fd));
+
+    //TODO iterate through date range and get events
+
+}
+
+char *input(cJSON *calendar, int new_fd) {
+    char *input = rec_data(new_fd, rec_data_sz(new_fd));
+
+    cJSON *input_list = cJSON_Parse(input);
+
+}
+
+cJSON *perform_action(char *action, cJSON *calendar, int new_fd) {
+    char *error;
+
+    if(!strcmp(action, "add")) {
+        error = add(calendar, new_fd);
+    }
+
+    else if(!strcmp(action, "remove")) {
+        error = remove(calendar, new_fd);
+    }
+
+    else if(!strcmp(action, "update")) {
+        error = update(calendar, new_fd);
+    }
+
+    else if(!strcmp(action, "get")) {
+        error = get(calendar, new_fd);
+    }
+
+    else if(!strcmp(action, "getrange")) {
+        error = getrange(calendar, new_fd);
+    }
+
+    else if(!strcmp(action, "input")) {
+        error = input(calendar, new_fd);
+    }
+
+    else {
+        error = "Invalid action";
+    }
+
+    send_response_json(action, calendar, identifier, success, error, data);
+}
+
 #define BACKLOG 10   // how many pending connections queue will hold
 
 void sigchld_handler(int s)
@@ -152,22 +309,13 @@ int main(int argc, char *argv[])
             close(sockfd); // child doesn't need the listener
 
 
-            //check for errors when client asks for calendar stuff
-            //char *error_message;
-            char *data;
-            
-
             char *calendar_name = rec_data(new_fd, rec_data_sz(new_fd));
 
-            //open calendar and put JSON in cal_JSON
-
+            //open file
             char file_name[BUFSIZ];
             strcat(file_name, "server/data/");
             strcat(file_name, calendar_name);
             strcat(file_name, ".json");
-
-            printf("%s\n", file_name);
-
             FILE *fp = fopen(file_name, "r");
 
  
@@ -179,167 +327,13 @@ int main(int argc, char *argv[])
                 exit(1);
             }
             
-            
+            fclose(fp);
 
             cJSON *calendar = cJSON_Parse(calendar_buffer);
 
             char *action = rec_data(new_fd, rec_data_sz(new_fd));
             printf("action: %s\n", action);
-
-
-            if(!strcmp(action, "add")) {
-
-
-                //receive number of fields to be added
-
-                uint16_t num_fields = rec_data_sz(new_fd);
-
-
-
-                cJSON *entry = cJSON_CreateObject();
-
-                for(int i = 0; i < num_fields/2; i++) {
-
-                    char *field = rec_data(new_fd, rec_data_sz(new_fd));
-
-                    char *field_value = rec_data(new_fd, rec_data_sz(new_fd));
-
-
-
-                    cJSON_AddStringToObject(entry, field, field_value);
-
-                }
-
-                cJSON *identifier_number = cJSON_CreateNumber((rand() % (9999999 - 1000000 + 1)) + 1000000); //create unique 3 digit identifier
-                cJSON_AddItemToObject(entry, "identifier", identifier_number);
-
-                cJSON_AddItemToArray(calendar, entry);
-
-
-                //write json object back to file
-                char *calendar_string = cJSON_Print(calendar);
-
-
-                fclose(fp);
-                fopen(file_name, "w+");
-
-                if(fwrite(calendar_string, 1, strlen(calendar_string), fp) == -1) {
-                    perror("unable to write calendar");
-                    exit(1);
-                }
-
-            }
-            else if(!strcmp(action, "remove")) {
-               
-                char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
-
-                //TODO PERFORM ACTION to remove event with identifier
-                //TODO add error message if identifier does not exist
-                int calendar_size = cJSON_GetArraySize(calendar);
-
-                for(int i = 0; i < calendar_size; i++) {
-                    cJSON *entry = cJSON_GetArrayItem(calendar, i);
-                    int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
-                    if (atoi(identifier) == curr_identifier) {
-                       cJSON_DeleteItemFromArray(calendar, i);
-                    }
-                }
-
-                //write json object back to file
-                char *calendar_string = cJSON_Print(calendar);
-
-                fclose(fp);
-                fopen(file_name, "w+");
-
-                if(fwrite(calendar_string, 1, strlen(calendar_string), fp) == -1) {
-                    perror("unable to write calendar");
-                    exit(1);
-                }
-
-            }
-            else if(!strcmp(action, "update")) {
-                
-                char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
-
-                char *field = rec_data(new_fd, rec_data_sz(new_fd));
-
-                //make sure identifier is not modified
-                if(!strcmp(field, "identifier")) {
-                    perror("identifier cannot be modifed");
-                    exit(1);
-                }
-
-                char *field_value = rec_data(new_fd, rec_data_sz(new_fd));
-
-
-                int calendar_size = cJSON_GetArraySize(calendar);
-                for(int i = 0; i < calendar_size; i++) {
-                    cJSON *entry = cJSON_GetArrayItem(calendar, i);
-                    int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
-                    if (atoi(identifier) == curr_identifier) {
-                       cJSON_ReplaceItemInObject(entry, field, cJSON_CreateString(field_value));
-                    }
-                }
-
-                //write json object back to file
-                char *calendar_string = cJSON_Print(calendar);
-
-                fclose(fp);
-                fopen(file_name, "w+");
-
-                if(fwrite(calendar_string, 1, strlen(calendar_string), fp) == -1) {
-                    perror("unable to write calendar");
-                    exit(1);
-                }
-
-            }
-            else if(!strcmp(action, "get")) {
-                
-                char *date = rec_data(new_fd, rec_data_sz(new_fd));
-                /*
-                //TODO get events as json and send to client for particular date
-                int calendar_size = cJSON_GetArraySize(calendar);
-                cJSON *get_events = cJSON_CreateObject();
-                cJSON *events = cJSON_CreateArray();
-
-                for(int i = 0; i < calendar_size; i++) {
-                    cJSON *entry = cJSON_GetArrayItem(calendar, i);
-                    cJSON *curr_date = cJSON_GetObjectItem(entry, "date");
-                    if (!strcmp(date, cJSON_Print(curr_date))) {
-                        cJSON *event_name = cJSON_GetObjectItem(entry, "name");
-                        cJSON_AddItemToArray(events, event_name);
-                    }
-                }
-
-                cJSON *num_events = cJSON_CreateNumber(cJSON_GetArraySize(events));
-                cJSON_AddItemToObject(get_events, "numevents", num_events);
-                cJSON_AddItemToObject(get_events, "data", events);
-                */
-            }
-            
-            else if(!strcmp(action, "getrange")) {
-                
-                char *start_date = rec_data(new_fd, rec_data_sz(new_fd));
-
-                char *end_date = rec_data(new_fd, rec_data_sz(new_fd));
-
-                //TODO iterate through date range and get events
-
-            }
-            else if(!strcmp(action, "input")) {
-
-                char *input = rec_data(new_fd, rec_data_sz(new_fd));
-
-                cJSON *input_list = cJSON_Parse(input);
-
-                
-             
-            }
-
-            else {
-                perror("not a valid action");
-                exit(1);
-            }
+            perform_action(calendar, new_fd);
 
             
             /*
