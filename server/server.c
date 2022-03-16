@@ -44,7 +44,7 @@ char *rec_data(int new_fd, uint16_t data_length) {
     return data;
 }
 
-void write_back_to_file(cJSON *calendar) {
+void write_back_to_file(cJSON *calendar, char *file_name) {
 
     FILE *fp = fopen(file_name, "w+");
     char *calendar_string = cJSON_Print(calendar);
@@ -55,7 +55,7 @@ void write_back_to_file(cJSON *calendar) {
     fclose(fp);
 }
 
-char *add(cJSON *calendar, int new_fd) {
+char *do_add(cJSON *calendar, int new_fd, char *file_name) {
 
     uint16_t num_fields = rec_data_sz(new_fd);
 
@@ -73,12 +73,12 @@ char *add(cJSON *calendar, int new_fd) {
     cJSON_AddItemToObject(entry, "identifier", identifier_number);
     cJSON_AddItemToArray(calendar, entry);
 
-    write_back_to_file(calendar);
+    write_back_to_file(calendar, file_name);
     
     return "";
 }
 
-char *remove(cJSON *calendar, int new_fd) {
+char *do_remove(cJSON *calendar, int new_fd, char *file_name) {
 
     char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
 
@@ -94,12 +94,12 @@ char *remove(cJSON *calendar, int new_fd) {
         }
     }
 
-    write_back_to_file(calendar);
+    write_back_to_file(calendar, file_name);
 
     return "";
 }
 
-char *update(cJSON *calendar, int new_fd) {
+char *do_update(cJSON *calendar, int new_fd, char *file_name) {
     char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
 
     char *field = rec_data(new_fd, rec_data_sz(new_fd));
@@ -122,13 +122,13 @@ char *update(cJSON *calendar, int new_fd) {
         }
     }
 
-    write_back_to_file(calendar);
+    write_back_to_file(calendar, file_name);
 
     return "";
 }
 
-char *get(cJSON *calendar, int new_fd) {
-    char *date = rec_data(new_fd, rec_data_sz(new_fd));
+char *do_get(cJSON *calendar, int new_fd, char *file_name) {
+    //char *date = rec_data(new_fd, rec_data_sz(new_fd));
     /*
     //TODO get events as json and send to client for particular date
     int calendar_size = cJSON_GetArraySize(calendar);
@@ -149,56 +149,63 @@ char *get(cJSON *calendar, int new_fd) {
     cJSON_AddItemToObject(get_events, "data", events);
     */
 
+    return "";
 }
 
-char *getrange(cJSON *calendar, int new_fd) {
-    char *start_date = rec_data(new_fd, rec_data_sz(new_fd));
+char *do_getrange(cJSON *calendar, int new_fd, char *file_name) {
+    //char *start_date = rec_data(new_fd, rec_data_sz(new_fd));
 
-    char *end_date = rec_data(new_fd, rec_data_sz(new_fd));
+    //char *end_date = rec_data(new_fd, rec_data_sz(new_fd));
 
     //TODO iterate through date range and get events
 
-}
-
-char *input(cJSON *calendar, int new_fd) {
-    char *input = rec_data(new_fd, rec_data_sz(new_fd));
-
-    cJSON *input_list = cJSON_Parse(input);
+    return "";
 
 }
 
-cJSON *perform_action(char *action, cJSON *calendar, int new_fd) {
+char *do_input(cJSON *calendar, int new_fd, char *file_name) {
+    //char *input = rec_data(new_fd, rec_data_sz(new_fd));
+
+    //cJSON *input_list = cJSON_Parse(input);
+
+    return "";
+
+}
+
+cJSON *perform_action(char *action, cJSON *calendar, int new_fd, char *file_name) {
     char *error;
 
     if(!strcmp(action, "add")) {
-        error = add(calendar, new_fd);
+        error = do_add(calendar, new_fd, file_name);
     }
 
     else if(!strcmp(action, "remove")) {
-        error = remove(calendar, new_fd);
+        error = do_remove(calendar, new_fd, file_name);
     }
 
     else if(!strcmp(action, "update")) {
-        error = update(calendar, new_fd);
+        error = do_update(calendar, new_fd, file_name);
     }
 
     else if(!strcmp(action, "get")) {
-        error = get(calendar, new_fd);
+        error = do_get(calendar, new_fd, file_name);
     }
 
     else if(!strcmp(action, "getrange")) {
-        error = getrange(calendar, new_fd);
+        error = do_getrange(calendar, new_fd, file_name);
     }
 
     else if(!strcmp(action, "input")) {
-        error = input(calendar, new_fd);
+        error = do_input(calendar, new_fd, file_name);
     }
 
     else {
         error = "Invalid action";
     }
 
-    send_response_json(action, calendar, identifier, success, error, data);
+    //send_response_json(action, calendar, identifier, success, error, data);
+
+    return cJSON_CreateObject();
 }
 
 #define BACKLOG 10   // how many pending connections queue will hold
@@ -333,7 +340,7 @@ int main(int argc, char *argv[])
 
             char *action = rec_data(new_fd, rec_data_sz(new_fd));
             printf("action: %s\n", action);
-            perform_action(calendar, new_fd);
+            perform_action(action, calendar, new_fd, file_name);
 
             
             /*
