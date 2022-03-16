@@ -1,6 +1,5 @@
 /*
 ** client.c -- a stream socket client demo
-   Ian Havenaar, Simran Moolchandaney, Jacob Schwartz
 */
 
 #include <stdio.h>
@@ -36,11 +35,7 @@ int main(int argc, char *argv[])
     int rv;
     char s[INET6_ADDRSTRLEN];
 	char *ip = "129.74.152.141";
-<<<<<<< HEAD
     char *port = "41111";
-=======
-    char *port = "41999";
->>>>>>> ac53b8e695537a7b2939a1ebe84d8efb33ba0990
 
     if (argc < 4) {
         fprintf(stderr,"usage: CalendarName action -> data for action <-\n");
@@ -82,10 +77,10 @@ int main(int argc, char *argv[])
     freeaddrinfo(servinfo); // all done with this structure
   
     char *calendar_name = argv[1];
-    uint16_t calendar_name_sz = htons(strlen(calendar_name));
+    uint16_t calenadr_name_sz = htons(strlen(calendar_name));
 
     // send size of calendar name
-    if ((send(sockfd, &calenadr_name_sz, sizeof(calendar_name_sz), 0)) == -1) {
+    if ((send(sockfd, &calenadr_name_sz, sizeof(calenadr_name_sz), 0)) == -1) {
         perror("recv");
         exit(1);  
     }
@@ -130,7 +125,9 @@ int main(int argc, char *argv[])
         for(int j = 3; j < argc; j++) {
 
             char *field = argv[j];
+
             uint16_t field_sz = htons(strlen(field));
+
 
             // send size of field value
             if ((send(sockfd, &field_sz, sizeof(field_sz), 0)) == -1) {
