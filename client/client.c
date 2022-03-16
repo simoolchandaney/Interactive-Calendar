@@ -34,8 +34,8 @@ int main(int argc, char *argv[])
 	// struct sockaddr_in *h;
     int rv;
     char s[INET6_ADDRSTRLEN];
-	char *ip = "129.74.152.73";
-    char *port = "41999";
+	char *ip = "129.74.152.141";
+    char *port = "41111";
 
     if (argc < 4) {
         fprintf(stderr,"usage: CalendarName action -> data for action <-\n");
