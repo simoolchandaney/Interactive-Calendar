@@ -19,6 +19,30 @@
 #include "../cJSON.h"
 #include <time.h>
 
+
+
+uint16_t rec_data_sz(int new_fd) {
+    //receive data size
+    uint16_t data_length;
+    if(recv(new_fd, &data_length, sizeof(data_length), 0) == -1) {
+        perror("recv");
+        exit(1);
+    }
+
+    return data_length;
+}
+char *rec_data(int new_fd, uint16_t data_length) {
+    // receive data
+    char *data = malloc(data_length+1);
+    data[data_length] = '\0';
+    if(recv(new_fd, data, ntohs(data_length), 0) == -1) {
+        perror("recv");
+        exit(1);
+    }
+
+    return data;
+}
+
 #define BACKLOG 10   // how many pending connections queue will hold
 
 void sigchld_handler(int s)
@@ -127,35 +151,26 @@ int main(int argc, char *argv[])
 
             //check for errors when client asks for calendar stuff
             //char *error_message;
+            char *data;
             
-            //receive size of calendar name
-            uint16_t calendar_length;
-            if(recv(new_fd, &calendar_length, sizeof(calendar_length), 0) == -1) {
-                perror("recv");
-                exit(1);
-            }
-
-            // receive calendar name
-            char calendar_name[calendar_length + 1];
-            calendar_name[calendar_length] = '\0';
-            if(recv(new_fd, calendar_name, ntohs(calendar_length), 0) == -1) {
-                perror("recv");
-                exit(1);
-            }
+            char *calendar_name = rec_data(new_fd, rec_data_sz(new_fd));
 
             //open calendar and put JSON in cal_JSON
-            FILE *fp = fopen(strcat(strcat("data/", calendar_name), ".json"), "w");
+            char file_name[BUFSIZ];
+            strcat(file_name, "server/data/");
+            strcat(file_name, calendar_name);
+            strcat(file_name, ".json");
 
-            if(fp == NULL) {
-                //need to create JSON file
-                cJSON *date = NULL;
-                cJSON *time = NULL;
-                cJSON *duration = NULL;
-                cJSON *name = NULL;
-                cJSON *description = NULL;
-                cJSON *location = NULL;
-                cJSON *identifier_number = cJSON_CreateNumber((rand() % (999 - 100 + 1)) + 100); //create unique 3 digit identifier
+            printf("%s\n", file_name);
 
+            FILE *fp = fopen(file_name, "r");
+
+            /*
+            fseek(fp, 0L, SEEK_END);
+            int file_sz = ftell(fp);
+            fseek(fp, 0L, SEEK_SET);
+
+   
                 cJSON *new_calendar = cJSON_CreateArray();
                 cJSON *entry = cJSON_CreateObject();
 
@@ -165,103 +180,82 @@ int main(int argc, char *argv[])
                     exit(1);
                 }
 
-                cJSON_AddItemToObject(entry, "date", date);
-                cJSON_AddItemToObject(entry, "time", time);
-                cJSON_AddItemToObject(entry, "duration", duration);
-                cJSON_AddItemToObject(entry, "name", name);
-                cJSON_AddItemToObject(entry, "description", description);
-                cJSON_AddItemToObject(entry, "location", location);
+                //cJSON_AddItemToObject(entry, "date", date);
+                //cJSON_AddItemToObject(entry, "time", time);
+                //cJSON_AddItemToObject(entry, "duration", duration);
+                //cJSON_AddItemToObject(entry, "name", name);
+                //cJSON_AddItemToObject(entry, "description", description);
+                //cJSON_AddItemToObject(entry, "location", location);
+                cJSON *identifier_number = cJSON_CreateNumber((rand() % (999 - 100 + 1)) + 100); //create unique 3 digit identifier
                 cJSON_AddItemToObject(entry, "indetifier_number", identifier_number);
-
+                
                 //add new null entry to new_calendar
                 cJSON_AddItemToArray(new_calendar, entry);
 
                 char *new_calendar_string = cJSON_Print(new_calendar);
 
-                if(fwrite(new_calendar_string, sizeof(new_calendar_string), 1, fp) == -1) {
+                printf("%s\n", new_calendar_string);
+                printf("%d\n", strlen(new_calendar_string));
+                */
+
+                /*
+                if(fwrite(new_calendar_string, 1, strlen(new_calendar_string), fp) == -1) {
                     perror("unable to write calendar");
                     exit(1);
                 }
-            }
+
+                fclose(fp);
+                
+
+
+            }*/
 
             //parse json file for calendar into cJSON object
             char calendar_buffer[BUFSIZ];
-            if(fread(calendar_buffer, BUFSIZ, 1, fp) == -1) {
+            if(fread(calendar_buffer, 1, BUFSIZ, fp) == -1) {
                 perror("unable to read calendar");
                 exit(1);
             }
+            
+            
 
             cJSON *calendar = cJSON_Parse(calendar_buffer);
 
 
-            //receive size of action name
-            uint16_t action_length;
-            if(recv(new_fd, &action_length, sizeof(action_length), 0) == -1) {
-                perror("recv");
-                exit(1);
-            }
-
-            // receive action
-            char action[action_length + 1];
-            action[action_length] = '\0';
-            if(recv(new_fd, action, ntohs(action_length), 0) == -1) {
-                perror("recv");
-                exit(1);
-            }
+            char *action = rec_data(new_fd, rec_data_sz(new_fd));
+            printf("action: %s\n", action);
 
             if(!strcmp(action, "add")) {
 
+
                 //receive number of fields to be added
-                uint16_t num_fields;
-                if(recv(new_fd, &num_fields, sizeof(num_fields), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
+                uint16_t num_fields = rec_data_sz(new_fd);
+
 
                 cJSON *entry = cJSON_CreateObject();
 
-                for(int i = 0; i < num_fields; i++) {
+                for(int i = 0; i < num_fields/2; i++) {
 
-                    //receive size of field name
-                    uint16_t field_length;
-                    if(recv(new_fd, &field_length, sizeof(field_length), 0) == -1) {
-                        perror("recv");
-                        exit(1);
-                    }
+                    char *field = rec_data(new_fd, rec_data_sz(new_fd));
 
-                    // receive field name
-                    char field[field_length + 1];
-                    field[field_length] = '\0';
-                    if(recv(new_fd, field, ntohs(field_length), 0) == -1) {
-                        perror("recv");
-                        exit(1);
-                    }
+                    char *field_value = rec_data(new_fd, rec_data_sz(new_fd));
 
-                    //receive size of field value
-                    uint16_t field_value_length;
-                    if(recv(new_fd, &field_value_length, sizeof(field_value_length), 0) == -1) {
-                        perror("recv");
-                        exit(1);
-                    }
 
-                    // receive field value
-                    char field_value[field_value_length + 1];
-                    field_value[field_value_length] = '\0';
-                    if(recv(new_fd, field, ntohs(field_value_length), 0) == -1) {
-                        perror("recv");
-                        exit(1);
-                    }
-
-                    //TODO error message if field value does not exits
                     cJSON_AddStringToObject(entry, field, field_value);
                 }
+
+                cJSON *identifier_number = cJSON_CreateNumber((rand() % (9999999 - 1000000 + 1)) + 1000000); //create unique 3 digit identifier
+                cJSON_AddItemToObject(entry, "identifier", identifier_number);
 
                 cJSON_AddItemToArray(calendar, entry);
 
                 //write json object back to file
                 char *calendar_string = cJSON_Print(calendar);
 
-                if(fwrite(calendar_string, sizeof(calendar_string), 1, fp) == -1) {
+                fclose(fp);
+                fopen(file_name, "w+");
+
+                if(fwrite(calendar_string, 1, strlen(calendar_string), fp) == -1) {
                     perror("unable to write calendar");
                     exit(1);
                 }
@@ -269,71 +263,41 @@ int main(int argc, char *argv[])
             }
             else if(!strcmp(action, "remove")) {
                
-                //receive size of identifier
-                uint16_t identifier_length;
-                if(recv(new_fd, &identifier_length, sizeof(identifier_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
-
-                // receive identifier
-                char identifier[identifier_length + 1];
-                identifier[identifier_length] = '\0';
-                if(recv(new_fd, identifier, ntohs(identifier_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
+                char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
 
                 //TODO PERFORM ACTION to remove event with identifier
                 //TODO add error message if identifier does not exist
                 int calendar_size = cJSON_GetArraySize(calendar);
+
                 for(int i = 0; i < calendar_size; i++) {
+
                     cJSON *entry = cJSON_GetArrayItem(calendar, i);
-                    cJSON *curr_identifier = cJSON_GetObjectItem(entry, "identifier");
-                    if (!strcmp(identifier, cJSON_Print(curr_identifier))) {
-                        cJSON_DeleteItemFromArray(calendar, i);
+
+                    int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
+
+                    if (atoi(identifier) == curr_identifier) {
+                        printf("cya\n");
+                       cJSON_DeleteItemFromArray(calendar, i);
                     }
                 }
 
                 //write json object back to file
                 char *calendar_string = cJSON_Print(calendar);
 
-                if(fwrite(calendar_string, sizeof(calendar_string), 1, fp) == -1) {
+                fclose(fp);
+                fopen(file_name, "w+");
+
+                if(fwrite(calendar_string, 1, strlen(calendar_string), fp) == -1) {
                     perror("unable to write calendar");
                     exit(1);
                 }
 
             }
             else if(!strcmp(action, "update")) {
-                //receive size of identifier
-                uint16_t identifier_length;
-                if(recv(new_fd, &identifier_length, sizeof(identifier_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
+                
+                char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
 
-                // receive identifier
-                char identifier[identifier_length + 1];
-                identifier[identifier_length] = '\0';
-                if(recv(new_fd, identifier, ntohs(identifier_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
-
-                //receive size of field name
-                uint16_t field_length;
-                if(recv(new_fd, &field_length, sizeof(field_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
-
-                // receive field name
-                char field[field_length + 1];
-                field[field_length] = '\0';
-                if(recv(new_fd, field, ntohs(field_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
+                char *field = rec_data(new_fd, rec_data_sz(new_fd));
 
                 //make sure identifier is not modified
                 if(!strcmp(field, "identifier")) {
@@ -341,23 +305,9 @@ int main(int argc, char *argv[])
                     exit(1);
                 }
 
-                //receive size of field value
-                uint16_t field_value_length;
-                if(recv(new_fd, &field_value_length, sizeof(field_value_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
-
-                // receive field value
-                char field_value[field_value_length + 1];
-                field_value[field_value_length] = '\0';
-                if(recv(new_fd, field, ntohs(field_value_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
+                char *field_value = rec_data(new_fd, rec_data_sz(new_fd));
 
 
-                //TODO update field with field value based on identifier
                 int calendar_size = cJSON_GetArraySize(calendar);
                 for(int i = 0; i < calendar_size; i++) {
                     cJSON *entry = cJSON_GetArrayItem(calendar, i);
@@ -370,6 +320,9 @@ int main(int argc, char *argv[])
                 //write json object back to file
                 char *calendar_string = cJSON_Print(calendar);
 
+                fclose(fp);
+                fopen(file_name, "w+");
+
                 if(fwrite(calendar_string, sizeof(calendar_string), 1, fp) == -1) {
                     perror("unable to write calendar");
                     exit(1);
@@ -377,110 +330,55 @@ int main(int argc, char *argv[])
 
             }
             else if(!strcmp(action, "get")) {
-                //receive size of date value
-                uint16_t date_length;
-                if(recv(new_fd, &date_length, sizeof(date_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
-
-                // receive date value
-                char date[date_length + 1];
-                date[date_length] = '\0';
-                if(recv(new_fd, date, ntohs(date_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
-
+                
+                char *date = rec_data(new_fd, rec_data_sz(new_fd));
+                /*
                 //TODO get events as json and send to client for particular date
+                int calendar_size = cJSON_GetArraySize(calendar);
+                cJSON *get_events = cJSON_CreateObject();
+                cJSON *events = cJSON_CreateArray();
 
+                for(int i = 0; i < calendar_size; i++) {
+                    cJSON *entry = cJSON_GetArrayItem(calendar, i);
+                    cJSON *curr_date = cJSON_GetObjectItem(entry, "date");
+                    if (!strcmp(date, cJSON_Print(curr_date))) {
+                        cJSON *event_name = cJSON_GetObjectItem(entry, "name");
+                        cJSON_AddItemToArray(events, event_name);
+                    }
+                }
+
+                cJSON *num_events = cJSON_CreateNumber(cJSON_GetArraySize(events));
+                cJSON_AddItemToObject(get_events, "numevents", num_events);
+                cJSON_AddItemToObject(get_events, "data", events);
+                */
             }
+            
             else if(!strcmp(action, "getrange")) {
-                //receive size of start date value
-                uint16_t start_date_length;
-                if(recv(new_fd, &start_date_length, sizeof(start_date_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
+                
+                char *start_date = rec_data(new_fd, rec_data_sz(new_fd));
 
-                //receive start date value
-                char start_date[start_date_length + 1];
-                start_date[start_date_length] = '\0';
-                if(recv(new_fd, start_date, ntohs(start_date_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
-
-                //receive size of end date value
-                uint16_t end_date_length;
-                if(recv(new_fd, &end_date_length, sizeof(end_date_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
-
-                // receive end date value
-                char end_date[end_date_length + 1];
-                end_date[end_date_length] = '\0';
-                if(recv(new_fd, end_date, ntohs(end_date_length), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
+                char *end_date = rec_data(new_fd, rec_data_sz(new_fd));
 
                 //TODO iterate through date range and get events
 
-            }/*
+            }
             else if(!strcmp(action, "input")) {
 
-                // receive size of file
-                uint32_t numbytes;
-                if ((recv(sockfd, &numbytes, sizeof(numbytes), 0)) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
+                char *input = rec_data(new_fd, rec_data_sz(new_fd));
 
-                numbytes = ntohl(numbytes);
+                cJSON *input_list = cJSON_Parse(input);
 
-                int fd = open(argv[3], O_CREAT|O_RDWR, 0666);
-
-                if (fd == -1) {
-                    perror("unable to open file");
-                }
-
-
-                // receive file data and write to json
-                char buffer[BUFSIZ];
-                int counter = 0;
-                int n;
-                while(1) {
-
-                    bzero(buffer, sizeof(buffer));
-
-                    n = recv(sockfd, buffer, sizeof(buffer), 0);
-                    if(n == -1) {
-                        perror("recv");
-                        exit(1);
-                    }
-                    counter += n;
-
-                    if(n > 0){
-                        //TODO write file data to calendar
-                        //if(write(fd, buffer, n) == -1) {
-                        //    perror("write");
-                        //    exit(1);
-                        //}
-                        break;
-                    }
                 
-                    if(counter >= numbytes) {
-                        break;
-                    }
-            }*/
+             
+            }
+
             else {
                 perror("not a valid action");
                 exit(1);
             }
 
-            fclose(fp);
+            
+            /*
 
             //create response json
             cJSON *response = cJSON_CreateObject();
@@ -511,7 +409,7 @@ int main(int argc, char *argv[])
                 perror("recv");
                 exit(1);
             }
-
+            */
 			fclose(fp);
             close(new_fd);
             exit(0);
