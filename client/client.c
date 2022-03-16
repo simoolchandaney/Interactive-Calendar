@@ -1,5 +1,6 @@
 /*
 ** client.c -- a stream socket client demo
+   Ian Havenaar, Simran Moolchandaney, Jacob Schwartz
 */
 
 #include <stdio.h>
