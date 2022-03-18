@@ -106,6 +106,7 @@ char *do_add(cJSON *calendar, int new_fd, char *file_name) {
 
 char *do_remove(cJSON *calendar, int new_fd, char *file_name) {
 
+    
     char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
     int calendar_size = cJSON_GetArraySize(calendar);
     char *error = "";
@@ -122,9 +123,6 @@ char *do_remove(cJSON *calendar, int new_fd, char *file_name) {
             }
         }
     }
-
-    free(identifier);
-    write_back_to_file(calendar, file_name);
 
     return error;
 }
@@ -144,8 +142,10 @@ char *do_update(cJSON *calendar, int new_fd, char *file_name) {
 
 
     int calendar_size = cJSON_GetArraySize(calendar);
-    for(int i = 0; i < calendar_size; i++) {
-        cJSON *entry = cJSON_GetArrayItem(calendar, i);
+
+    cJSON *entry;
+    cJSON_ArrayForEach(entry, calendar)
+
         int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
         if (atoi(identifier) == curr_identifier) {
             cJSON_ReplaceItemInObject(entry, field, cJSON_CreateString(field_value));
@@ -161,7 +161,7 @@ char *do_update(cJSON *calendar, int new_fd, char *file_name) {
 }
 
 char *do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date, char *end_date) {
-    printf("getrange\n");
+
     int start_date_int = date_to_int(start_date);
     int end_date_int = date_to_int(end_date);
     int num_days = 0;
@@ -169,33 +169,28 @@ char *do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date
     cJSON *events_wrapper = cJSON_CreateObject();
     cJSON *events = cJSON_CreateArray();
 
-    int calendar_size = cJSON_GetArraySize(calendar);
+    cJSON *entry = NULL;
+    cJSON_ArrayForEach(entry, calendar) {
 
-    for(int i = 0; i < calendar_size; i++) {
         
-        cJSON *entry = cJSON_GetArrayItem(calendar, i);
-
-        printf("i: %d\n", i);
-        printf("%s\n", cJSON_Print(entry));
-
         cJSON *date = cJSON_GetObjectItem(entry, "date");
         char *date_str = cJSON_GetStringValue(date);
         int curr_date = date_to_int(date_str);
-        //printf("curr: %d\n", curr_date);
-        //printf("start: %d\n", start_date_int);
-        //printf("end: %d\n", end_date_int);
-        if(curr_date >= start_date_int || curr_date <= end_date_int) {
-            //printf("IN\n");
-            cJSON_AddItemToArray(events, entry);
+
+        printf("curr date: %d\n", curr_date);
+        printf("start date: %d\n", start_date_int);
+        printf("end date: %d\n", end_date_int);
+
+        if(curr_date >= start_date_int && curr_date <= end_date_int) {
+            cJSON_AddItemReferenceToArray(events, entry);
             num_days += 1;
-        }
-        printf("after\n");
+        } 
     }
 
     cJSON_AddNumberToObject(events_wrapper, "num_days", num_days);
     cJSON_AddItemToObject(events_wrapper, "events", events);
 
-    printf("%s\n", cJSON_Print(events_wrapper));
+    //printf("%s\n", cJSON_Print(events_wrapper));
 
     //TODO send response json
 
@@ -211,14 +206,6 @@ char *do_get(cJSON *calendar, int new_fd, char *file_name) {
     return error;
 }
 
-char *do_input(cJSON *calendar, int new_fd, char *file_name) {
-    //char *input = rec_data(new_fd, rec_data_sz(new_fd));
-
-    //cJSON *input_list = cJSON_Parse(input);
-
-    return "";
-
-}
 
 cJSON *perform_action(char *action, cJSON *calendar, int new_fd, char *file_name) {
     char *error;
@@ -248,9 +235,6 @@ cJSON *perform_action(char *action, cJSON *calendar, int new_fd, char *file_name
         free(end_date);
     }
 
-    else if(!strcmp(action, "input")) {
-        error = do_input(calendar, new_fd, file_name);
-    }
 
     else {
         error = "Invalid action";
