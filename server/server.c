@@ -21,7 +21,6 @@
 #include <sys/stat.h>
 
 
-
 uint16_t rec_data_sz(int new_fd) {
     //receive data size
     uint16_t data_length;
@@ -77,9 +76,41 @@ int date_to_int(char *date) {
     return date_int;
 }
 
-//void send_response_json()
+void send_response_json(int new_fd, char *action, char *calendar, int identifier, int success, char *error, cJSON *data) {
+    //create response json
+    cJSON *response = cJSON_CreateObject();
 
-char *do_add(cJSON *calendar, int new_fd, char *file_name) {
+    cJSON_AddItemToObject(response, "command", cJSON_CreateString(action));
+    cJSON_AddItemToObject(response, "calendar", cJSON_CreateString(calendar));
+    cJSON_AddItemToObject(response, "identifier", success ? cJSON_CreateNumber(identifier): cJSON_CreateString("XXXX"));
+    cJSON_AddItemToObject(response, "success",  success ? cJSON_CreateString("True"): cJSON_CreateString("False"));
+    cJSON_AddItemToObject(response, "error", cJSON_CreateString(error)); 
+    cJSON_AddItemToObject(response, "data", data);
+
+    uint16_t response_size = htons(sizeof(response));
+
+    printf("%s\n" ,cJSON_Print(response));
+
+    //send size of JSON
+    if((send(new_fd, &response_size, sizeof(response_size), 0)) == -1) {
+        perror("recv");
+        exit(1);
+    }
+
+    //send JSON, no way this actually works
+    if((send(new_fd, response, sizeof(response), 0)) == -1) {
+        perror("recv");
+        exit(1);
+    }
+    
+}
+
+void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
+
+    char fields[6][20]= {"date", "time", "duration", "name", "description", "location"};
+    char req_fields[4][20] = {"date", "time", "duration", "name"};
+    int field_check[4] = {0,0,0,0};
+    char *error = "";
 
     uint16_t num_fields = rec_data_sz(new_fd);
 
@@ -88,98 +119,158 @@ char *do_add(cJSON *calendar, int new_fd, char *file_name) {
     for(int i = 0; i < num_fields/2; i++) {
 
         char *field = rec_data(new_fd, rec_data_sz(new_fd));
+
+        //mark required fields
+        for(int i = 0; i < sizeof(req_fields); i++) {
+            if(!strcmp(req_fields[i], field)) {
+                field_check[i] = 1;
+            }
+        }
+
+        int valid_field = 0;
+        for(int i = 0; i < sizeof(fields); i++) {
+            if(!strcmp(fields[i], field)) {
+                valid_field = 1;
+            }
+        }  
         char *field_value = rec_data(new_fd, rec_data_sz(new_fd));
 
         cJSON_AddStringToObject(entry, field, field_value);
         free(field);
         free(field_value);
+
+        if(!valid_field) {
+            error =  "ADD Error: invalid field value";
+        }  
+
+        free(field);
+        free(field_value);
+    }
+
+    for(int i = 0; i < sizeof(field_check); i++) {
+        if(field_check[i] == 0) {
+            error = "ADD Error: date, time, duration, name fields are required.";
+        }
     }
 
     cJSON *identifier_number = cJSON_CreateNumber((rand() % (9999999 - 1000000 + 1)) + 1000000); //create unique 3 digit identifier
     cJSON_AddItemToObject(entry, "identifier", identifier_number);
     cJSON_AddItemToArray(calendar, entry);
 
-    write_back_to_file(calendar, file_name);
+    if(!strcmp(error, "")) {
+        write_back_to_file(calendar, file_name);
+    }
+
+    int success = !strcmp(error, "");
+    send_response_json(new_fd, action, calendar_name, cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier")), success, error, cJSON_CreateObject());
     
-    return "";
+    return;
 }
 
-char *do_remove(cJSON *calendar, int new_fd, char *file_name) {
+void do_remove(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
 
     
     char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
     int calendar_size = cJSON_GetArraySize(calendar);
     char *error = "";
 
+    cJSON *entry = NULL;
+
+    int found_identifier = 0;
+    int identifier_value = NULL;
+
     for(int i = 0; i < calendar_size; i++) {
-        cJSON *entry = cJSON_GetArrayItem(calendar, i);
-        if (!cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"))) {
-            error = "error to remove: identifier does not exist";
-        }
-        else {
-            int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
-            if (atoi(identifier) == curr_identifier) {
-                cJSON_DeleteItemFromArray(calendar, i);
-            }
+        int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
+        if (atoi(identifier) == curr_identifier) {
+            found_identifier = 1;
+            identifier_value = curr_identifier;
+            cJSON_DeleteItemFromArray(calendar, i);
         }
     }
 
-    return error;
+    if(!found_identifier) {
+        error =  "REMOVE Error: identifier does not exist";
+    }
+
+    if(!strcmp(error, "")) {
+        write_back_to_file(calendar, file_name);
+    }
+
+    int success = !strcmp(error, "");
+    send_response_json(new_fd, action, calendar_name, identifier_value, success, error, cJSON_CreateObject());
+    free(identifier);
+    return;
 }
 
-char *do_update(cJSON *calendar, int new_fd, char *file_name) {
+void do_update(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
+
+    char fields[6][20] = {"date", "time", "duration", "name", "description", "location"};
+
+    char *error = "";
+
     char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
 
     char *field = rec_data(new_fd, rec_data_sz(new_fd));
 
-    //make sure identifier is not modified
-    if(!strcmp(field, "identifier")) {
-        perror("identifier cannot be modifed");
-        exit(1);
+    int valid_field = 0;
+
+    for(int i = 0; i < sizeof(fields); i++) {
+        if (!strcmp(fields[i], field)) {
+            valid_field = 1;
+        }
     }
 
     char *field_value = rec_data(new_fd, rec_data_sz(new_fd));
 
+    if(!valid_field) {
+        error = "UPDATE Error: invalid field value.";
+    }
 
-    int calendar_size = cJSON_GetArraySize(calendar);
-
-    cJSON *entry;
-    cJSON_ArrayForEach(entry, calendar)
+    cJSON *entry = NULL;
+    int found_identifier = 0;
+    cJSON_ArrayForEach(entry, calendar) {
 
         int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
         if (atoi(identifier) == curr_identifier) {
+            found_identifier = 1;
             cJSON_ReplaceItemInObject(entry, field, cJSON_CreateString(field_value));
         }
     }
 
-    write_back_to_file(calendar, file_name);
+
+    if(!found_identifier) {
+        error = "UPDATE Error: identifier does not exist.";
+    }
+
+    if(!strcmp(error, "")) {
+        write_back_to_file(calendar, file_name);
+    }
+    
+    int success = !strcmp(error, "");
+    send_response_json(new_fd, action, calendar_name, cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier")), success, error, cJSON_CreateObject());
     free(identifier);
     free(field);
     free(field_value);
-
-    return "";
+    return;
 }
 
-char *do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date, char *end_date) {
+void do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date, char *end_date, char *action, char *calendar_name) {
 
     int start_date_int = date_to_int(start_date);
     int end_date_int = date_to_int(end_date);
     int num_days = 0;
 
+
     cJSON *events_wrapper = cJSON_CreateObject();
     cJSON *events = cJSON_CreateArray();
 
     cJSON *entry = NULL;
+
     cJSON_ArrayForEach(entry, calendar) {
 
-        
         cJSON *date = cJSON_GetObjectItem(entry, "date");
         char *date_str = cJSON_GetStringValue(date);
         int curr_date = date_to_int(date_str);
-
-        printf("curr date: %d\n", curr_date);
-        printf("start date: %d\n", start_date_int);
-        printf("end date: %d\n", end_date_int);
 
         if(curr_date >= start_date_int && curr_date <= end_date_int) {
             cJSON_AddItemReferenceToArray(events, entry);
@@ -190,59 +281,55 @@ char *do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date
     cJSON_AddNumberToObject(events_wrapper, "num_days", num_days);
     cJSON_AddItemToObject(events_wrapper, "events", events);
 
-    //printf("%s\n", cJSON_Print(events_wrapper));
+    //TODO return multiple identifiers??
 
-    //TODO send response json
 
-    return "";
-
+    send_response_json(new_fd, action, calendar_name, 0, 1, "", events_wrapper);
+    return;
 }
 
-char *do_get(cJSON *calendar, int new_fd, char *file_name) {
+void do_get(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
 
     char *date = rec_data(new_fd, rec_data_sz(new_fd));
-    char *error = do_getrange(calendar, new_fd, file_name, date, date);
+    do_getrange(calendar, new_fd, file_name, date, date, action, calendar_name);
     free(date);
-    return error;
+    return;
 }
 
 
-cJSON *perform_action(char *action, cJSON *calendar, int new_fd, char *file_name) {
-    char *error;
+void perform_action(char *action, cJSON *calendar, int new_fd, char *file_name, char *calendar_name) {
 
     if(!strcmp(action, "add")) {
-        error = do_add(calendar, new_fd, file_name);
+        do_add(calendar, new_fd, file_name, "add", calendar_name);
     }
 
     else if(!strcmp(action, "remove")) {
-        error = do_remove(calendar, new_fd, file_name);
+        do_remove(calendar, new_fd, file_name, "remove", calendar_name);
     }
 
     else if(!strcmp(action, "update")) {
-        error = do_update(calendar, new_fd, file_name);
+        do_update(calendar, new_fd, file_name, "update", calendar_name);
     }
 
     else if(!strcmp(action, "get")) {
-        error = do_get(calendar, new_fd, file_name);
+        do_get(calendar, new_fd, file_name, "get", calendar_name);
     }
 
     else if(!strcmp(action, "getrange")) {
         char *start_date = rec_data(new_fd, rec_data_sz(new_fd));
         char *end_date = rec_data(new_fd, rec_data_sz(new_fd));
 
-        error = do_getrange(calendar, new_fd, file_name, start_date, end_date);
+        do_getrange(calendar, new_fd, file_name, start_date, end_date, "getrange", calendar_name);
         free(start_date);
         free(end_date);
     }
 
-
     else {
-        error = "Invalid action";
+        send_response_json(new_fd, "INVALID", calendar_name, 0, 0, "ACTION: Invalid action", cJSON_CreateObject());
+
     }
 
-    //send_response_json(action, calendar, identifier, success, error, data);
-
-    return cJSON_CreateObject();
+    return;
 }
 
 #define BACKLOG 10   // how many pending connections queue will hold
@@ -362,8 +449,6 @@ int main(int argc, char *argv[])
             strcat(file_name, ".json");
             FILE *fp = fopen(file_name, "r");
 
- 
-
             //parse json file for calendar into cJSON object
             char calendar_buffer[BUFSIZ];
             if(fread(calendar_buffer, 1, BUFSIZ, fp) == -1) {
@@ -376,43 +461,12 @@ int main(int argc, char *argv[])
             cJSON *calendar = cJSON_Parse(calendar_buffer);
 
             char *action = rec_data(new_fd, rec_data_sz(new_fd));
-            printf("action: %s\n", action);
-            perform_action(action, calendar, new_fd, file_name);
+            //printf("action: %s\n", action);
+            perform_action(action, calendar, new_fd, file_name, calendar_name);
 
             free(calendar_name);
             free(action);
-            /*
 
-            //create response json
-            cJSON *response = cJSON_CreateObject();
-            if(response == NULL) {
-                perror("JSON response could not be created");
-                exit(1);
-            }
-
-            cJSON_AddItemToObject(response, "command", cJSON_CreateString(action));
-            cJSON_AddItemToObject(response, "calendar", cJSON_CreateString(calendar_name));
-            //cJSON_AddItemToObject(response, "identifier", success ? identifier_number: "XXXX");
-            //cJSON_AddItemToObject(response, "success", success ? "True": "False");
-            //cJSON_AddItemToObject(response, "error", error_message); //TODO get error messages
-            //cJSON_AddItemToObject(response, "data", data);
-
-            //TODO send response json object to client
-
-            uint16_t response_size = htons(sizeof(response));//miracle if this is right
-
-            //send size of JSON
-            if((send(sockfd, &response_size, sizeof(response_size), 0)) == -1) {
-                perror("recv");
-                exit(1);
-            }
-
-            //send JSON, no way this actually works
-            if((send(sockfd, response, sizeof(response), 0)) == -1) {
-                perror("recv");
-                exit(1);
-            }
-            */
 			fclose(fp);
             close(new_fd);
             exit(0);
