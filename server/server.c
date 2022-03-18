@@ -81,22 +81,25 @@ char *do_add(cJSON *calendar, int new_fd, char *file_name) {
 char *do_remove(cJSON *calendar, int new_fd, char *file_name) {
 
     char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
-
-    //TODO PERFORM ACTION to remove event with identifier
-    //TODO add error message if identifier does not exist
     int calendar_size = cJSON_GetArraySize(calendar);
+    char *error = "";
 
     for(int i = 0; i < calendar_size; i++) {
         cJSON *entry = cJSON_GetArrayItem(calendar, i);
-        int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
-        if (atoi(identifier) == curr_identifier) {
-            cJSON_DeleteItemFromArray(calendar, i);
+        if (!cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"))) {
+            error = "error to remove: identifier does not exist";
+        }
+        else {
+            int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
+            if (atoi(identifier) == curr_identifier) {
+                cJSON_DeleteItemFromArray(calendar, i);
+            }
         }
     }
 
     write_back_to_file(calendar, file_name);
 
-    return "";
+    return error;
 }
 
 char *do_update(cJSON *calendar, int new_fd, char *file_name) {
