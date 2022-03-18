@@ -228,7 +228,6 @@ int main(int argc, char *argv[])
     else if(!strcmp(action_name, "get")) {
         do_get(sockfd, argv);
     }
-
     else if(!strcmp(action_name, "getrange")) {
         do_get_range(sockfd, argv);
     }
@@ -245,7 +244,34 @@ int main(int argc, char *argv[])
         }
         fclose(fp);
         cJSON *calendar = cJSON_Parse(calendar_buffer);
-        
+        int sz = cJSON_GetArraySize(calendar);
+        for (int i = 0; i < sz; i++) {
+            char *str = cJSON_GetStringValue(cJSON_GetArrayItem(calendar, i));
+            char delim[] = " ";
+            char *ptr = strtok(str, delim);
+            char arr[BUFSIZ];
+            int i = 0;
+	        while(ptr != NULL) {
+                arr[i] = ptr;
+                i++;
+		        ptr = strtok(NULL, delim);
+	        }
+            if(!strcmp(arr[2], "add")) {
+                do_add(sockfd, i, arr);
+            }
+            else if(!strcmp(arr[2], "remove")) {
+                do_remove(sockfd, arr);
+            }
+            else if(!strcmp(arr[2], "update")) {
+                do_update(sockfd, i, arr);
+            }
+            else if(!strcmp(arr[2], "get")) {
+                do_get(sockfd, arr);
+            }
+            else if(!strcmp(arr[2], "getrange")) {
+                do_get_range(sockfd, arr);
+            }
+        }
     }
 
     else {
