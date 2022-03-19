@@ -246,7 +246,7 @@ void do_update(cJSON *calendar, int new_fd, char *file_name, char *action, char 
     }
     
     int success = !strcmp(error, "");
-    send_response_json(new_fd, action, calendar_name, cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier")), success, error, cJSON_CreateObject());
+    send_response_json(new_fd, action, calendar_name, atoi(identifier), success, error, cJSON_CreateObject());
     free(identifier);
     free(field);
     free(field_value);
@@ -459,12 +459,21 @@ int main(int argc, char *argv[])
 
             cJSON *calendar = cJSON_Parse(calendar_buffer);
 
-            char *action = rec_data(new_fd, rec_data_sz(new_fd));
+            uint16_t num_actions;
+            if(recv(new_fd, &num_actions, sizeof(num_actions), 0) == -1) {
+                perror("recv");
+                exit(1);
+            }
 
-            perform_action(action, calendar, new_fd, file_name, calendar_name);
+            for(int i = 0; i < num_actions; i++) {
+                printf("%d\n", num_actions);
+                char *action = rec_data(new_fd, rec_data_sz(new_fd));
+                perform_action(action, calendar, new_fd, file_name, calendar_name);
+                free(action);
+
+            }
 
             free(calendar_name);
-            free(action);
 
 			fclose(fp);
             close(new_fd);
