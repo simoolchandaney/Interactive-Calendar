@@ -231,10 +231,9 @@ int main(int argc, char *argv[])
     else if(!strcmp(action_name, "getrange")) {
         do_get_range(sockfd, argv);
     }
-
     else if(!strcmp(action_name, "input")) {
         char *input_file_name = argv[3];
-        uint16_t input_file_name_sz = htons(strlen(input_file_name));
+        //uint16_t input_file_name_sz = htons(strlen(input_file_name));
         FILE *fp = fopen(input_file_name, "r");
         //parse json file for calendar into cJSON object
         char calendar_buffer[BUFSIZ];
@@ -245,15 +244,15 @@ int main(int argc, char *argv[])
         fclose(fp);
         cJSON *calendar = cJSON_Parse(calendar_buffer);
         int sz = cJSON_GetArraySize(calendar);
+
         for (int i = 0; i < sz; i++) {
-            char *str = cJSON_GetStringValue(cJSON_GetArrayItem(calendar, i));
+            char *str = cJSON_GetStringValue(cJSON_GetArrayItem(calendar, i)); // gets the string in the json
             char delim[] = " ";
             char *ptr = strtok(str, delim);
-            char arr[BUFSIZ];
+            char *arr[BUFSIZ];
             int i = 0;
 	        while(ptr != NULL) {
-                arr[i] = ptr;
-                i++;
+                arr[i++] = ptr;    // place words of first string into array 
 		        ptr = strtok(NULL, delim);
 	        }
             if(!strcmp(arr[2], "add")) {
@@ -273,7 +272,6 @@ int main(int argc, char *argv[])
             }
         }
     }
-
     else {
         printf("Invalid command. Please try again.\n");
         exit(1);
