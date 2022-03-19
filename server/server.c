@@ -33,9 +33,10 @@ uint16_t rec_data_sz(int new_fd) {
 }
 char *rec_data(int new_fd, uint16_t data_length) {
     // receive data
+    data_length = ntohs(data_length);
     char *data = malloc(data_length+1);
     data[data_length] = '\0';
-    if(recv(new_fd, data, ntohs(data_length), 0) == -1) {
+    if(recv(new_fd, data, data_length, 0) == -1) {
         perror("recv");
         exit(1);
     }
@@ -55,7 +56,6 @@ void write_back_to_file(cJSON *calendar, char *file_name) {
 }
 
 int date_to_int(char *date) {
-
 
     char year[2];
     memcpy(year, &date[4], 2);
@@ -87,9 +87,9 @@ void send_response_json(int new_fd, char *action, char *calendar, int identifier
     cJSON_AddItemToObject(response, "error", cJSON_CreateString(error)); 
     cJSON_AddItemToObject(response, "data", data);
 
-    uint16_t response_size = htons(sizeof(response));
 
-    printf("%s\n" ,cJSON_Print(response));
+    char *response_str = cJSON_Print(response);
+    uint32_t response_size = htons(strlen(response_str));
 
     //send size of JSON
     if((send(new_fd, &response_size, sizeof(response_size), 0)) == -1) {
@@ -97,8 +97,7 @@ void send_response_json(int new_fd, char *action, char *calendar, int identifier
         exit(1);
     }
 
-    //send JSON, no way this actually works
-    if((send(new_fd, response, sizeof(response), 0)) == -1) {
+    if((send(new_fd, response_str, response_size, 0)) == -1) {
         perror("recv");
         exit(1);
     }
@@ -121,14 +120,14 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
         char *field = rec_data(new_fd, rec_data_sz(new_fd));
 
         //mark required fields
-        for(int i = 0; i < sizeof(req_fields); i++) {
+        for(int i = 0; i < sizeof(req_fields)/sizeof(req_fields[0]); i++) {
             if(!strcmp(req_fields[i], field)) {
                 field_check[i] = 1;
             }
         }
 
         int valid_field = 0;
-        for(int i = 0; i < sizeof(fields); i++) {
+        for(int i = 0; i < sizeof(fields)/sizeof(fields[0]); i++) {
             if(!strcmp(fields[i], field)) {
                 valid_field = 1;
             }
@@ -136,8 +135,6 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
         char *field_value = rec_data(new_fd, rec_data_sz(new_fd));
 
         cJSON_AddStringToObject(entry, field, field_value);
-        free(field);
-        free(field_value);
 
         if(!valid_field) {
             error =  "ADD Error: invalid field value";
@@ -147,7 +144,7 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
         free(field_value);
     }
 
-    for(int i = 0; i < sizeof(field_check); i++) {
+    for(int i = 0; i < sizeof(field_check)/ sizeof(field_check[0]); i++) {
         if(field_check[i] == 0) {
             error = "ADD Error: date, time, duration, name fields are required.";
         }
@@ -180,7 +177,9 @@ void do_remove(cJSON *calendar, int new_fd, char *file_name, char *action, char 
     int identifier_value = NULL;
 
     for(int i = 0; i < calendar_size; i++) {
+        entry = cJSON_GetArrayItem(calendar, i);
         int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
+
         if (atoi(identifier) == curr_identifier) {
             found_identifier = 1;
             identifier_value = curr_identifier;
@@ -189,7 +188,7 @@ void do_remove(cJSON *calendar, int new_fd, char *file_name, char *action, char 
     }
 
     if(!found_identifier) {
-        error =  "REMOVE Error: identifier does not exist";
+        error = "REMOVE Error: identifier does not exist";
     }
 
     if(!strcmp(error, "")) {
@@ -214,7 +213,7 @@ void do_update(cJSON *calendar, int new_fd, char *file_name, char *action, char 
 
     int valid_field = 0;
 
-    for(int i = 0; i < sizeof(fields); i++) {
+    for(int i = 0; i < sizeof(fields)/sizeof(fields[0]); i++) {
         if (!strcmp(fields[i], field)) {
             valid_field = 1;
         }
@@ -461,7 +460,7 @@ int main(int argc, char *argv[])
             cJSON *calendar = cJSON_Parse(calendar_buffer);
 
             char *action = rec_data(new_fd, rec_data_sz(new_fd));
-            //printf("action: %s\n", action);
+
             perform_action(action, calendar, new_fd, file_name, calendar_name);
 
             free(calendar_name);
