@@ -304,9 +304,7 @@ int main(int argc, char *argv[])
                 arr[j++] = ptr;    // place words of first string into array 
 		        ptr = strtok(NULL, delim);
 	        }
-
             send_action(sockfd, j, arr);
-
             if(!strcmp(arr[2], "add")) {
                 do_add(sockfd, j, arr);
             }
@@ -322,7 +320,6 @@ int main(int argc, char *argv[])
             else if(!strcmp(arr[2], "getrange")) {
                 do_get_range(sockfd, arr);
             }
-
             receive_response(sockfd);
         }
     }
