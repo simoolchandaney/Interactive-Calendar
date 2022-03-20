@@ -20,7 +20,6 @@
 #include <time.h>
 #include <sys/stat.h>
 
-
 uint16_t rec_data_sz(int new_fd) {
     //receive data size
     uint16_t data_length;
@@ -28,7 +27,6 @@ uint16_t rec_data_sz(int new_fd) {
         perror("recv");
         exit(1);
     }
-
     return data_length;
 }
 char *rec_data(int new_fd, uint16_t data_length) {
@@ -40,12 +38,10 @@ char *rec_data(int new_fd, uint16_t data_length) {
         perror("recv");
         exit(1);
     }
-
     return data;
 }
 
 void write_back_to_file(cJSON *calendar, char *file_name) {
-
     FILE *fp = fopen(file_name, "w+");
     char *calendar_string = cJSON_Print(calendar);
     if(fwrite(calendar_string, 1, strlen(calendar_string), fp) == -1) {
@@ -56,21 +52,15 @@ void write_back_to_file(cJSON *calendar, char *file_name) {
 }
 
 int date_to_int(char *date) {
-
     char year[2];
     memcpy(year, &date[4], 2);
     year[2] = '\0';
-
-
     char month_day[4];
     memcpy(month_day, &date[0], 4);
     month_day[4] = '\0';
-
     char *date_reformat = malloc(6);
-    
     strcat(date_reformat, year);
     strcat(date_reformat, month_day);
-
     int date_int = atoi(date_reformat);
     free(date_reformat);
     return date_int;
@@ -86,7 +76,6 @@ void send_response_json(int new_fd, char *action, char *calendar, int identifier
     cJSON_AddItemToObject(response, "success",  success ? cJSON_CreateString("True"): cJSON_CreateString("False"));
     cJSON_AddItemToObject(response, "error", cJSON_CreateString(error)); 
     cJSON_AddItemToObject(response, "data", data);
-
 
     char *response_str = cJSON_Print(response);
     uint32_t response_size = htons(strlen(response_str));
@@ -112,13 +101,11 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
     char *error = "";
 
     uint16_t num_fields = rec_data_sz(new_fd);
-
     cJSON *entry = cJSON_CreateObject();
 
     for(int i = 0; i < num_fields/2; i++) {
 
         char *field = rec_data(new_fd, rec_data_sz(new_fd));
-
         //mark required fields
         for(int i = 0; i < sizeof(req_fields)/sizeof(req_fields[0]); i++) {
             if(!strcmp(req_fields[i], field)) {
@@ -204,13 +191,9 @@ void do_remove(cJSON *calendar, int new_fd, char *file_name, char *action, char 
 void do_update(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
 
     char fields[6][20] = {"date", "time", "duration", "name", "description", "location"};
-
     char *error = "";
-
     char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
-
     char *field = rec_data(new_fd, rec_data_sz(new_fd));
-
     int valid_field = 0;
 
     for(int i = 0; i < sizeof(fields)/sizeof(fields[0]); i++) {
@@ -235,7 +218,6 @@ void do_update(cJSON *calendar, int new_fd, char *file_name, char *action, char 
             cJSON_ReplaceItemInObject(entry, field, cJSON_CreateString(field_value));
         }
     }
-
 
     if(!found_identifier) {
         error = "UPDATE Error: identifier does not exist.";
@@ -262,7 +244,6 @@ void do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date,
 
     cJSON *events_wrapper = cJSON_CreateObject();
     cJSON *events = cJSON_CreateArray();
-
     cJSON *entry = NULL;
 
     cJSON_ArrayForEach(entry, calendar) {
@@ -282,13 +263,11 @@ void do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date,
 
     //TODO return multiple identifiers??
 
-
     send_response_json(new_fd, action, calendar_name, 0, 1, "", events_wrapper);
     return;
 }
 
 void do_get(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
-
     char *date = rec_data(new_fd, rec_data_sz(new_fd));
     do_getrange(calendar, new_fd, file_name, date, date, action, calendar_name);
     free(date);
@@ -325,7 +304,6 @@ void perform_action(char *action, cJSON *calendar, int new_fd, char *file_name, 
 
     else {
         send_response_json(new_fd, "INVALID", calendar_name, 0, 0, "ACTION: Invalid action", cJSON_CreateObject());
-
     }
 
     return;
@@ -348,6 +326,40 @@ void *get_in_addr(struct sockaddr *sa)
         return &(((struct sockaddr_in*)sa)->sin_addr);
     }
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+void func(int sockfd, int new_fd) {
+    close(sockfd); // child doesn't need the listener
+    char *calendar_name = rec_data(new_fd, rec_data_sz(new_fd));
+    //open file
+    char file_name[BUFSIZ];
+    strcat(file_name, "server/data/");
+    strcat(file_name, calendar_name);
+    strcat(file_name, ".json");
+    FILE *fp = fopen(file_name, "r");
+    //parse json file for calendar into cJSON object
+    char calendar_buffer[BUFSIZ];
+    if(fread(calendar_buffer, 1, BUFSIZ, fp) == -1) {
+        perror("unable to read calendar");
+        exit(1);
+        }
+    fclose(fp);
+    cJSON *calendar = cJSON_Parse(calendar_buffer);
+    uint16_t num_actions;
+    if(recv(new_fd, &num_actions, sizeof(num_actions), 0) == -1) {
+        perror("recv");
+        exit(1);
+    }
+    for(int i = 0; i < num_actions; i++) {
+        printf("%d\n", num_actions);
+        char *action = rec_data(new_fd, rec_data_sz(new_fd));
+        perform_action(action, calendar, new_fd, file_name, calendar_name);
+        free(action);
+    }
+    free(calendar_name);
+    fclose(fp);
+    close(new_fd);
+    exit(0);
 }
 
 int main(int argc, char *argv[])
@@ -400,7 +412,6 @@ int main(int argc, char *argv[])
         break;
     }
 
-
     freeaddrinfo(servinfo); // all done with this structure
 
     if (p == NULL)  {
@@ -412,7 +423,6 @@ int main(int argc, char *argv[])
         perror("listen");
         exit(1);
     }
-
 
     sa.sa_handler = sigchld_handler; // reap all dead processes
     sigemptyset(&sa.sa_mask);
@@ -435,49 +445,13 @@ int main(int argc, char *argv[])
         inet_ntop(their_addr.ss_family,get_in_addr((struct sockaddr *)&their_addr),s, sizeof s);
         printf("server: got connection from %s\n", s);
 
-        if (!fork()) { // this is the child process
-            close(sockfd); // child doesn't need the listener
-
-
-            char *calendar_name = rec_data(new_fd, rec_data_sz(new_fd));
-
-            //open file
-            char file_name[BUFSIZ];
-            strcat(file_name, "server/data/");
-            strcat(file_name, calendar_name);
-            strcat(file_name, ".json");
-            FILE *fp = fopen(file_name, "r");
-
-            //parse json file for calendar into cJSON object
-            char calendar_buffer[BUFSIZ];
-            if(fread(calendar_buffer, 1, BUFSIZ, fp) == -1) {
-                perror("unable to read calendar");
-                exit(1);
+        if (!strcmp(argv[argc-1], "-mt")) {
+            if (!fork()) { // this is the child process
+                func(sockfd, new_fd);
             }
-            
-            fclose(fp);
-
-            cJSON *calendar = cJSON_Parse(calendar_buffer);
-
-            uint16_t num_actions;
-            if(recv(new_fd, &num_actions, sizeof(num_actions), 0) == -1) {
-                perror("recv");
-                exit(1);
-            }
-
-            for(int i = 0; i < num_actions; i++) {
-                printf("%d\n", num_actions);
-                char *action = rec_data(new_fd, rec_data_sz(new_fd));
-                perform_action(action, calendar, new_fd, file_name, calendar_name);
-                free(action);
-
-            }
-
-            free(calendar_name);
-
-			fclose(fp);
-            close(new_fd);
-            exit(0);
+        }
+        else {
+            func(sockfd, new_fd);
         }
         close(new_fd);  // parent doesn't need this
     
