@@ -27,6 +27,7 @@ uint16_t rec_data_sz(int new_fd) {
         perror("recv");
         exit(1);
     }
+    printf("received size: %d\n", ntohs(data_length));
     return data_length;
 }
 char *rec_data(int new_fd, uint16_t data_length) {
@@ -35,9 +36,12 @@ char *rec_data(int new_fd, uint16_t data_length) {
     char *data = malloc(data_length+1);
     data[data_length] = '\0';
     if(recv(new_fd, data, data_length, 0) == -1) {
+        printf("%s\n", "failed to rec");
+        fprintf(stderr, "rec %s (%d)\n", strerror(errno), errno);
         perror("recv");
         exit(1);
     }
+    printf("received: %s\n", data);
     return data;
 }
 
@@ -88,6 +92,8 @@ void send_response_json(int new_fd, char *action, char *calendar, int identifier
         perror("recv");
         exit(1);
     }  
+
+    printf("sent: %s\n", response_str);
 }
 
 void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
@@ -140,7 +146,6 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
             }
         }
     }
-
     
     cJSON_AddItemToObject(entry, "identifier", identifier_number);
     cJSON_AddItemToArray(calendar, entry);
@@ -199,7 +204,6 @@ void do_update(cJSON *calendar, int new_fd, char *file_name, char *action, char 
     cJSON *entry = NULL;
     int found_identifier = 0;
     cJSON_ArrayForEach(entry, calendar) {
-
         int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
         if (atoi(identifier) == curr_identifier) {
             found_identifier = 1;
@@ -404,7 +408,7 @@ int main(int argc, char *argv[]) {
                 strcat(file_name, "server/data/");
                 strcat(file_name, calendar_name);
                 strcat(file_name, ".json");
-                printf("fn: %s\n", file_name);
+
                 FILE *fp = fopen(file_name, "r");
                 if(!fp) {
                     fp  = fopen(file_name, "w+");
@@ -420,7 +424,7 @@ int main(int argc, char *argv[]) {
                     perror("unable to read calendar");
                     exit(1);
                 }
-                
+
                 cJSON *calendar = cJSON_Parse(calendar_buffer);
                 uint16_t num_actions;
                 if(recv(new_fd, &num_actions, sizeof(num_actions), 0) == -1) {
@@ -469,7 +473,6 @@ int main(int argc, char *argv[]) {
                 exit(1);
             }
             for(int i = 0; i < num_actions; i++) {
-                //printf("%d\n", num_actions);
                 char *action = rec_data(new_fd, rec_data_sz(new_fd));
                 perform_action(action, calendar, new_fd, file_name, calendar_name);
                 free(action);

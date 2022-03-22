@@ -74,11 +74,13 @@ void do_update(int sockfd, int argc, char *argv[]) {
     char *identifier = argv[3];
     uint16_t identifier_sz = htons(strlen(identifier));
     // send size of identifier
+    printf("sending: %d\n", ntohs(identifier_sz));
     if ((send(sockfd, &identifier_sz, sizeof(identifier_sz), 0)) == -1) {
             perror("recv");
             exit(1);  
     }
     // send identifier
+    printf("sending: %s\n", identifier);
     if ((send(sockfd, identifier, strlen(identifier), 0)) == -1) {
         perror("recv");
         exit(1);  
@@ -86,10 +88,12 @@ void do_update(int sockfd, int argc, char *argv[]) {
     for(int i = 4; i < argc; i++) {
         char *field = argv[i];
         uint16_t field_sz = htons(strlen(field));
+        printf("sending: %d\n", ntohs(field_sz));
         if ((send(sockfd, &field_sz, sizeof(field_sz), 0)) == -1) {
             perror("recv");
             exit(1);  
         }
+        printf("sending: %s\n", field);
         if ((send(sockfd, field, strlen(field), 0)) == -1) {
             perror("recv");
             exit(1);  
@@ -137,16 +141,18 @@ void do_get_range(int sockfd, char *argv[]) {
     }
 }
 
-void send_action(int sockfd, int argc, char *argv[]) {
+void send_action(int sockfd, char *argv[]) {
     char *action_name = argv[2];
     uint16_t action_name_sz = htons(strlen(action_name));
 
     // send size of action
+    printf("sending : %d\n", ntohs(action_name_sz));
     if ((send(sockfd, &action_name_sz, sizeof(action_name_sz), 0)) == -1) {
         perror("recv");
         exit(1);  
     }
 
+    printf("sending: %s\n", action_name);
     // send action 
     if ((send(sockfd, action_name, strlen(action_name), 0)) == -1) {
         perror("recv");
@@ -169,14 +175,20 @@ void receive_response(int sockfd) {
 			exit(1);
 	}
 
+    numbytes = ntohs(numbytes);
     //receive json
-    char data[BUFSIZ];
-    if ((recv(sockfd, data, ntohs(numbytes), 0)) == -1) {
+    char *data = malloc(numbytes+1);
+    data[numbytes] = '\0';
+    if ((recv(sockfd, data, numbytes, 0)) == -1) {
 			perror("recv");
 			exit(1);
 	}
 
-    printf("%s\n", data);
+    printf("received: %s\n", data);
+    free(data);
+
+    return;
+    //printf("%s\n", data);
 }
 
 int main(int argc, char *argv[])
@@ -247,31 +259,31 @@ int main(int argc, char *argv[])
 
     if(!strcmp(action_name, "add")) {
         send_num_actions(sockfd, 1);
-        send_action(sockfd, argc, argv);
+        send_action(sockfd, argv);
         do_add(sockfd, argc, argv);
         receive_response(sockfd);
     }
     else if(!strcmp(action_name, "remove")) {
         send_num_actions(sockfd, 1);
-        send_action(sockfd, argc, argv);
+        send_action(sockfd, argv);
         do_remove(sockfd, argv);
         receive_response(sockfd);
     }
     else if(!strcmp(action_name, "update")) {
         send_num_actions(sockfd, 1);
-        send_action(sockfd, argc, argv);
+        send_action(sockfd, argv);
         do_update(sockfd, argc, argv);
         receive_response(sockfd);
     }
     else if(!strcmp(action_name, "get")) {
         send_num_actions(sockfd, 1);
-        send_action(sockfd, argc, argv);
+        send_action(sockfd, argv);
         do_get(sockfd, argv);
         receive_response(sockfd);
     }
     else if(!strcmp(action_name, "getrange")) {
         send_num_actions(sockfd, 1);
-        send_action(sockfd, argc, argv);
+        send_action(sockfd, argv);
         do_get_range(sockfd, argv);
         receive_response(sockfd);
     }
@@ -280,6 +292,11 @@ int main(int argc, char *argv[])
         //uint16_t input_file_name_sz = htons(strlen(input_file_name));
         FILE *fp = fopen(input_file_name, "r");
         
+        if(!fp) {
+            perror("invalid file name");
+            exit(1);
+        }
+
         //parse json file for calendar into cJSON object
         char calendar_buffer[BUFSIZ];
         if(fread(calendar_buffer, 1, BUFSIZ, fp) == -1) {
@@ -304,7 +321,8 @@ int main(int argc, char *argv[])
                 arr[j++] = ptr;    // place words of first string into array 
 		        ptr = strtok(NULL, delim);
 	        }
-            send_action(sockfd, j, arr);
+
+            send_action(sockfd, arr);
             if(!strcmp(arr[2], "add")) {
                 do_add(sockfd, j, arr);
             }
