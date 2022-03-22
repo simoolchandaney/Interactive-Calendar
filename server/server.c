@@ -313,39 +313,6 @@ void *get_in_addr(struct sockaddr *sa) {
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-    close(sockfd); // child doesn't need the listener
-    char *calendar_name = rec_data(new_fd, rec_data_sz(new_fd));
-    //open file
-    char file_name[BUFSIZ];
-    strcat(file_name, "server/data/");
-    strcat(file_name, calendar_name);
-    strcat(file_name, ".json");
-    FILE *fp = fopen(file_name, "r");
-    //parse json file for calendar into cJSON object
-    char calendar_buffer[BUFSIZ];
-    if(fread(calendar_buffer, 1, BUFSIZ, fp) == -1) {
-        perror("unable to read calendar");
-        exit(1);
-        }
-    fclose(fp);
-    cJSON *calendar = cJSON_Parse(calendar_buffer);
-    uint16_t num_actions;
-    if(recv(new_fd, &num_actions, sizeof(num_actions), 0) == -1) {
-        perror("recv");
-        exit(1);
-    }
-    for(int i = 0; i < num_actions; i++) {
-        //printf("%d\n", num_actions);
-        char *action = rec_data(new_fd, rec_data_sz(new_fd));
-        perform_action(action, calendar, new_fd, file_name, calendar_name);
-        free(action);
-    }
-    free(calendar_name);
-    fclose(fp);
-    close(new_fd);
-    exit(0);
-}
-
 int main(int argc, char *argv[]) {
     int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
     struct addrinfo hints, *servinfo, *p;
