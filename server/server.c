@@ -126,7 +126,22 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
             error = "ADD Error: date, time, duration, name fields are required.";
         }
     }
-    cJSON *identifier_number = cJSON_CreateNumber((rand() % (9999999 - 1000000 + 1)) + 1000000); //create unique 3 digit identifier
+    
+    int is_unique = 0;
+    cJSON* identifier_number = cJSON_CreateNumber(0);
+
+    while(is_unique == 0 && cJSON_GetNumberValue(identifier_number) == 0) {
+        identifier_number = cJSON_CreateNumber((rand() % (9999999 - 1000000 + 1)) + 1000000);
+        cJSON *entry;
+        is_unique = 1;
+        cJSON_ArrayForEach(entry, calendar) {
+            if(cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "indentifier")) == cJSON_GetNumberValue(identifier_number)) {
+                is_unique = 0;
+            }
+        }
+    }
+
+    
     cJSON_AddItemToObject(entry, "identifier", identifier_number);
     cJSON_AddItemToArray(calendar, entry);
 
@@ -256,7 +271,7 @@ void perform_action(char *action, cJSON *calendar, int new_fd, char *file_name, 
         free(start_date);
         free(end_date);
     }
-    else if(!strcmp(action, "input")) {
+    /*else if(!strcmp(action, "input")) {
         int sz = cJSON_GetArraySize(calendar);
         for (int i = 0; i < sz; i++) {
             char *str = cJSON_GetStringValue(cJSON_GetArrayItem(calendar, i)); // gets the string in the json
@@ -290,7 +305,7 @@ void perform_action(char *action, cJSON *calendar, int new_fd, char *file_name, 
                 free(end_date);
             }
         }
-    }
+    }*/
 
     else {
         send_response_json(new_fd, "INVALID", calendar_name, 0, 0, "ACTION: Invalid action", cJSON_CreateObject());
@@ -322,7 +337,6 @@ int main(int argc, char *argv[]) {
     int yes=1;
     char s[INET6_ADDRSTRLEN];
     int rv;
-    srand(time(NULL)); // for identifier
     if (argc < 2) {
         fprintf(stderr,"usage: server hostname\n");
         exit(1);
@@ -372,6 +386,7 @@ int main(int argc, char *argv[]) {
     }
     printf("server: waiting for connections...\n");
     while(1) {  // main accept() loop
+        srand(time(NULL)); // for identifier
         sin_size = sizeof their_addr;
         new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
         if (new_fd == -1) {
