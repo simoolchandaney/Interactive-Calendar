@@ -404,14 +404,23 @@ int main(int argc, char *argv[]) {
                 strcat(file_name, "server/data/");
                 strcat(file_name, calendar_name);
                 strcat(file_name, ".json");
+                printf("fn: %s\n", file_name);
                 FILE *fp = fopen(file_name, "r");
+                if(!fp) {
+                    fp  = fopen(file_name, "w+");
+                    char *br = "[]";
+                    fputs(br, fp);
+                }
+                
+                fseek(fp,0,SEEK_SET);
+            
                 //parse json file for calendar into cJSON object
                 char calendar_buffer[BUFSIZ];
                 if(fread(calendar_buffer, 1, BUFSIZ, fp) == -1) {
                     perror("unable to read calendar");
                     exit(1);
                 }
-                fclose(fp);
+                
                 cJSON *calendar = cJSON_Parse(calendar_buffer);
                 uint16_t num_actions;
                 if(recv(new_fd, &num_actions, sizeof(num_actions), 0) == -1) {
@@ -436,14 +445,23 @@ int main(int argc, char *argv[]) {
             strcat(file_name, "server/data/");
             strcat(file_name, calendar_name);
             strcat(file_name, ".json");
+
             FILE *fp = fopen(file_name, "r");
+            if(!fp) {
+                fp  = fopen(file_name, "w+");
+                char *br = "[]";
+                fputs(br, fp);
+            }
+
+            fseek(fp,0,SEEK_SET);
+           
             //parse json file for calendar into cJSON object
             char calendar_buffer[BUFSIZ];
             if(fread(calendar_buffer, 1, BUFSIZ, fp) == -1) {
                 perror("unable to read calendar");
                 exit(1);
             }
-            fclose(fp);
+
             cJSON *calendar = cJSON_Parse(calendar_buffer);
             uint16_t num_actions;
             if(recv(new_fd, &num_actions, sizeof(num_actions), 0) == -1) {
