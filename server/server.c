@@ -313,7 +313,6 @@ void *get_in_addr(struct sockaddr *sa) {
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-void func(int sockfd, int new_fd) {
     close(sockfd); // child doesn't need the listener
     char *calendar_name = rec_data(new_fd, rec_data_sz(new_fd));
     //open file
