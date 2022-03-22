@@ -357,7 +357,7 @@ int main(int argc, char *argv[]) {
     char s[INET6_ADDRSTRLEN];
     int rv;
     srand(time(NULL)); // for identifier
-    if (argc != 3) {
+    if (argc < 2) {
         fprintf(stderr,"usage: server hostname\n");
         exit(1);
     }
