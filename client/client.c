@@ -418,7 +418,6 @@ int main(int argc, char *argv[])
             split(str, arr, strlen(str)-2);
             int j = 2;
             while(arr[j] != NULL) {
-                printf("%s\n", arr[j]);
                 j++;
             }
             send_action(sockfd, arr);
