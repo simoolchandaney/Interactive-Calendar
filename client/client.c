@@ -18,6 +18,7 @@
 #include <sys/time.h>
 #include <arpa/inet.h>
 #include "../cJSON.h"
+#include <ctype.h>
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
@@ -26,6 +27,54 @@ void *get_in_addr(struct sockaddr *sa)
         return &(((struct sockaddr_in*)sa)->sin_addr);
     }
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
+}
+
+void split(char *buffer, char *argv[], size_t argv_size)
+{
+    char *p, *start_of_word;
+    int c;
+    enum states { DULL, IN_WORD, IN_STRING } state = DULL;
+    size_t argc = 2;
+
+    for (p = buffer; argc < argv_size && *p != '\0'; p++) {
+        c = (unsigned char) *p;
+        switch (state) {
+        case DULL:
+            if (isspace(c)) {
+                continue;
+            }
+
+            if (c == '\'') {
+                state = IN_STRING;
+                start_of_word = p + 1; 
+                continue;
+            }
+            state = IN_WORD;
+            start_of_word = p;
+            continue;
+
+        case IN_STRING:
+            if (c == '\'') {
+                *p = 0;
+                argv[argc++] = start_of_word;
+                state = DULL;
+            }
+            continue;
+
+        case IN_WORD:
+            if (isspace(c)) {
+                *p = 0;
+                argv[argc++] = start_of_word;
+                state = DULL;
+            }
+            continue;
+        }
+    }
+
+    if (state != DULL && argc < argv_size)
+        argv[argc++] = start_of_word;
+
+    return;
 }
 
 void do_add(int sockfd, int argc, char *argv[]) {
@@ -353,16 +402,14 @@ int main(int argc, char *argv[])
 
         for (int i = 0; i < sz; i++) {
             char *str = cJSON_GetStringValue(cJSON_GetArrayItem(calendar, i)); // gets the string in the json
-            char delim[] = " ";
-            char *ptr = strtok(str, delim);
             char *arr[BUFSIZ];
+            split(str, arr, strlen(str)-2);
             int j = 2;
-            arr[0] = NULL;
-            arr[1] = NULL;
-	        while(ptr != NULL) {
-                arr[j++] = ptr;    // place words of first string into array 
-		        ptr = strtok(NULL, delim);
-	        }
+            while(arr[j] != NULL) {
+                printf("%s\n", arr[j]);
+                j++;
+            }
+            
 
             send_action(sockfd, arr);
             if(!strcmp(arr[2], "add")) {
