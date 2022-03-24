@@ -97,6 +97,7 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
     char fields[6][20]= {"date", "time", "duration", "name", "description", "location"};
     char req_fields[4][20] = {"date", "time", "duration", "name"};
     int field_check[4] = {0,0,0,0};
+    int optional_field_check[2] = {0, 0};
     char *error = "";
     uint16_t num_fields = rec_data_sz(new_fd);
     cJSON *entry = cJSON_CreateObject();
@@ -120,6 +121,12 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
         if(!valid_field) {
             error =  "ADD Error: invalid field value";
         }  
+        if(!strcmp(fields[4], field)) {
+            optional_field_check[0] = 1;
+        }
+        if(!strcmp(fields[5], field)) {
+            optional_field_check[1] = 1;
+        }
         free(field);
         free(field_value);
     }
@@ -127,6 +134,13 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
         if(field_check[i] == 0) {
             error = "ADD Error: date, time, duration, name fields are required.";
         }
+    }
+
+    if(optional_field_check[0] == 0) {
+        cJSON_AddStringToObject(entry, fields[4], "");
+    }
+    if(optional_field_check[1] == 0) {
+        cJSON_AddStringToObject(entry, fields[5], "");
     }
     
     int is_unique = 0;

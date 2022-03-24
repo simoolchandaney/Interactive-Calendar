@@ -197,10 +197,11 @@ void receive_response(int sockfd) {
                 printf("Name: %s\n", cJSON_GetStringValue(cJSON_GetObjectItem(event, "name")));
                 char *description = cJSON_GetStringValue(cJSON_GetObjectItem(event, "description"));
                 char *location = cJSON_GetStringValue(cJSON_GetObjectItem(event, "location"));
-                if(description) {
+                
+                if(strlen(description)) {
                     printf("Description: %s\n", description);
                 }
-                if(location) {
+                if(strlen(location)) {
                     printf("Location: %s\n", location);
                 }
                 printf("\n");
