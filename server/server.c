@@ -27,7 +27,6 @@ uint16_t rec_data_sz(int new_fd) {
         perror("recv");
         exit(1);
     }
-    printf("received size: %d\n", ntohs(data_length));
     return data_length;
 }
 char *rec_data(int new_fd, uint16_t data_length) {
@@ -36,12 +35,9 @@ char *rec_data(int new_fd, uint16_t data_length) {
     char *data = malloc(data_length+1);
     data[data_length] = '\0';
     if(recv(new_fd, data, data_length, 0) == -1) {
-        printf("%s\n", "failed to rec");
-        fprintf(stderr, "rec %s (%d)\n", strerror(errno), errno);
         perror("recv");
         exit(1);
     }
-    printf("received: %s\n", data);
     return data;
 }
 
@@ -70,7 +66,7 @@ int date_to_int(char *date) {
     return date_int;
 }
 
-char* get_response_json(int new_fd, char *action, char *calendar, int identifier, int success, char *error, cJSON *data) {
+void send_response_json(int new_fd, char *action, char *calendar, int identifier, int success, char *error, cJSON *data) {
     //create response json
     cJSON *response = cJSON_CreateObject();
     cJSON_AddItemToObject(response, "command", cJSON_CreateString(action));
@@ -83,24 +79,18 @@ char* get_response_json(int new_fd, char *action, char *calendar, int identifier
     char *response_str = cJSON_Print(response);
     uint32_t response_size = htons(strlen(response_str));
 
-    /*
     // send size of JSON
     if((send(new_fd, &response_size, sizeof(response_size), 0)) == -1) {
         perror("recv");
         exit(1);
     }
-    if((send(new_fd, response_str, response_size, 0)) == -1) {
+    if((send(new_fd, response_str, ntohs(response_size), 0)) == -1) {
         perror("recv");
         exit(1);
     }  
-    */
-
-    //printf("sent: %s\n", response_str);
-    cJSON_Delete(response);
-    return response_str;
 }
 
-char* do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
+void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
 
     char fields[6][20]= {"date", "time", "duration", "name", "description", "location"};
     char req_fields[4][20] = {"date", "time", "duration", "name"};
@@ -158,12 +148,11 @@ char* do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *c
         write_back_to_file(calendar, file_name);
     }
     int success = !strcmp(error, "");
-    char *response = get_response_json(new_fd, action, calendar_name, cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier")), success, error, cJSON_CreateObject());
-    cJSON_Delete(entry);
-    return response;
+    send_response_json(new_fd, action, calendar_name, cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier")), success, error, cJSON_CreateObject());
+    return;
 }
 
-char* do_remove(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
+void do_remove(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
     char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
     int calendar_size = cJSON_GetArraySize(calendar);
     char *error = "";
@@ -186,12 +175,12 @@ char* do_remove(cJSON *calendar, int new_fd, char *file_name, char *action, char
         write_back_to_file(calendar, file_name);
     }
     int success = !strcmp(error, "");
-    char *response = get_response_json(new_fd, action, calendar_name, identifier_value, success, error, cJSON_CreateObject());
+    send_response_json(new_fd, action, calendar_name, identifier_value, success, error, cJSON_CreateObject());
     free(identifier);
-    return response;
+    return;
 }
 
-char* do_update(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
+void do_update(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
     char fields[6][20] = {"date", "time", "duration", "name", "description", "location"};
     char *error = "";
     char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
@@ -222,14 +211,14 @@ char* do_update(cJSON *calendar, int new_fd, char *file_name, char *action, char
         write_back_to_file(calendar, file_name);
     }
     int success = !strcmp(error, "");
-    char *response = get_response_json(new_fd, action, calendar_name, atoi(identifier), success, error, cJSON_CreateObject());
+    send_response_json(new_fd, action, calendar_name, atoi(identifier), success, error, cJSON_CreateObject());
     free(identifier);
     free(field);
     free(field_value);
-    return response;
+    return;
 }
 
-char* do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date, char *end_date, char *action, char *calendar_name) {
+void do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date, char *end_date, char *action, char *calendar_name) {
     int start_date_int = date_to_int(start_date);
     int end_date_int = date_to_int(end_date);
     int num_days = 0;
@@ -249,38 +238,36 @@ char* do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date
     cJSON_AddItemToObject(events_wrapper, "events", events);
     //TODO return multiple identifiers??
 
-    char *response = get_response_json(new_fd, action, calendar_name, 0, 1, "", events_wrapper);
-    cJSON_Delete(events_wrapper);
-    return response;
+    send_response_json(new_fd, action, calendar_name, 0, 1, "", events_wrapper);
+    return;
 }
 
-char* do_get(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
+void do_get(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
     char *date = rec_data(new_fd, rec_data_sz(new_fd));
-    char* response = do_getrange(calendar, new_fd, file_name, date, date, action, calendar_name);
+    do_getrange(calendar, new_fd, file_name, date, date, action, calendar_name);
     free(date);
-    return response;
+    return;
 }
 
-char * perform_action(char *action, cJSON *calendar, int new_fd, char *file_name, char *calendar_name) {
+void perform_action(char *action, cJSON *calendar, int new_fd, char *file_name, char *calendar_name) {
     if(!strcmp(action, "add")) {
-        return do_add(calendar, new_fd, file_name, "add", calendar_name);
+        do_add(calendar, new_fd, file_name, "add", calendar_name);
     }
     else if(!strcmp(action, "remove")) {
-        return do_remove(calendar, new_fd, file_name, "remove", calendar_name);
+        do_remove(calendar, new_fd, file_name, "remove", calendar_name);
     }
     else if(!strcmp(action, "update")) {
-        return do_update(calendar, new_fd, file_name, "update", calendar_name);
+        do_update(calendar, new_fd, file_name, "update", calendar_name);
     }
     else if(!strcmp(action, "get")) {
-        return do_get(calendar, new_fd, file_name, "get", calendar_name);
+        do_get(calendar, new_fd, file_name, "get", calendar_name);
     }
     else if(!strcmp(action, "getrange")) {
         char *start_date = rec_data(new_fd, rec_data_sz(new_fd));
         char *end_date = rec_data(new_fd, rec_data_sz(new_fd));
-        char *response = do_getrange(calendar, new_fd, file_name, start_date, end_date, "getrange", calendar_name);
+        do_getrange(calendar, new_fd, file_name, start_date, end_date, "getrange", calendar_name);
         free(start_date);
         free(end_date);
-        return response;
     }
     /*else if(!strcmp(action, "input")) {
         int sz = cJSON_GetArraySize(calendar);
@@ -317,8 +304,11 @@ char * perform_action(char *action, cJSON *calendar, int new_fd, char *file_name
             }
         }
     }*/
-    return get_response_json(new_fd, "INVALID", calendar_name, 0, 0, "ACTION: Invalid action", cJSON_CreateObject());
 
+    else {
+        send_response_json(new_fd, "INVALID", calendar_name, 0, 0, "ACTION: Invalid action", cJSON_CreateObject());
+    }
+    return;
 }
 
 #define BACKLOG 10   // how many pending connections queue will hold
@@ -436,7 +426,6 @@ int main(int argc, char *argv[]) {
                     exit(1);
                 }
                 for(int i = 0; i < num_actions; i++) {
-                    //printf("%d\n", num_actions);
                     char *action = rec_data(new_fd, rec_data_sz(new_fd));
                     perform_action(action, calendar, new_fd, file_name, calendar_name);
                     free(action);
@@ -476,30 +465,10 @@ int main(int argc, char *argv[]) {
                 perror("recv");
                 exit(1);
             }
-
-            char responses[num_actions][BUFSIZ];
             for(int i = 0; i < num_actions; i++) {
                 char *action = rec_data(new_fd, rec_data_sz(new_fd));
-                strcpy(responses[i], perform_action(action, calendar, new_fd, file_name, calendar_name));
+                perform_action(action, calendar, new_fd, file_name, calendar_name);
                 free(action);
-            }
-
-            for(int i = 0; i< num_actions; i++) {
-                uint32_t response_size = htons(strlen(responses[i]));
-
-                printf("sending size: %d\n", ntohs(response_size));
-                // send size of JSON
-                if((send(new_fd, &response_size, sizeof(response_size), 0)) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
-                //send json
-                if((send(new_fd, responses[i], ntohs(response_size), 0)) == -1) {
-                    perror("recv");
-                    exit(1);
-                }  
-                printf("sent: %s\n", responses[i]);
-    
             }
             free(calendar_name);
             close(new_fd);

@@ -74,13 +74,11 @@ void do_update(int sockfd, int argc, char *argv[]) {
     char *identifier = argv[3];
     uint16_t identifier_sz = htons(strlen(identifier));
     // send size of identifier
-    printf("sending: %d\n", ntohs(identifier_sz));
     if ((send(sockfd, &identifier_sz, sizeof(identifier_sz), 0)) == -1) {
             perror("recv");
             exit(1);  
     }
     // send identifier
-    printf("sending: %s\n", identifier);
     if ((send(sockfd, identifier, strlen(identifier), 0)) == -1) {
         perror("recv");
         exit(1);  
@@ -88,12 +86,10 @@ void do_update(int sockfd, int argc, char *argv[]) {
     for(int i = 4; i < argc; i++) {
         char *field = argv[i];
         uint16_t field_sz = htons(strlen(field));
-        printf("sending: %d\n", ntohs(field_sz));
         if ((send(sockfd, &field_sz, sizeof(field_sz), 0)) == -1) {
             perror("recv");
             exit(1);  
         }
-        printf("sending: %s\n", field);
         if ((send(sockfd, field, strlen(field), 0)) == -1) {
             perror("recv");
             exit(1);  
@@ -146,13 +142,11 @@ void send_action(int sockfd, char *argv[]) {
     uint16_t action_name_sz = htons(strlen(action_name));
 
     // send size of action
-    printf("sending : %d\n", ntohs(action_name_sz));
     if ((send(sockfd, &action_name_sz, sizeof(action_name_sz), 0)) == -1) {
         perror("recv");
         exit(1);  
     }
 
-    printf("sending: %s\n", action_name);
     // send action 
     if ((send(sockfd, action_name, strlen(action_name), 0)) == -1) {
         perror("recv");
@@ -170,16 +164,12 @@ void send_num_actions(int sockfd, uint16_t num_actions) {
 void receive_response(int sockfd) {
     // receive size of json file
     uint32_t numbytes;
-
     if ((recv(sockfd, &numbytes, sizeof(numbytes), 0)) == -1) {
 			perror("recv");
 			exit(1);
 	}
 
-    printf("received: %d\n", numbytes);
-
     numbytes = ntohs(numbytes);
-    printf("received: %d\n", numbytes);
     //receive json
     char *data = malloc(numbytes+1);
     data[numbytes] = '\0';
@@ -187,13 +177,10 @@ void receive_response(int sockfd) {
 			perror("recv");
 			exit(1);
 	}
-    
 
-    printf("received: %s\n", data);
+    printf("%s\n", data);
     free(data);
-
     return;
-
 }
 
 int main(int argc, char *argv[])
@@ -266,31 +253,31 @@ int main(int argc, char *argv[])
         send_num_actions(sockfd, 1);
         send_action(sockfd, argv);
         do_add(sockfd, argc, argv);
-        //receive_response(sockfd);
+        receive_response(sockfd);
     }
     else if(!strcmp(action_name, "remove")) {
         send_num_actions(sockfd, 1);
         send_action(sockfd, argv);
         do_remove(sockfd, argv);
-        //receive_response(sockfd);
+        receive_response(sockfd);
     }
     else if(!strcmp(action_name, "update")) {
         send_num_actions(sockfd, 1);
         send_action(sockfd, argv);
         do_update(sockfd, argc, argv);
-        //receive_response(sockfd);
+        receive_response(sockfd);
     }
     else if(!strcmp(action_name, "get")) {
         send_num_actions(sockfd, 1);
         send_action(sockfd, argv);
         do_get(sockfd, argv);
-        //receive_response(sockfd);
+        receive_response(sockfd);
     }
     else if(!strcmp(action_name, "getrange")) {
         send_num_actions(sockfd, 1);
         send_action(sockfd, argv);
         do_get_range(sockfd, argv);
-        //receive_response(sockfd);
+        receive_response(sockfd);
     }
     else if(!strcmp(action_name, "input")) {
         char *input_file_name = argv[3];
@@ -343,9 +330,6 @@ int main(int argc, char *argv[])
             else if(!strcmp(arr[2], "getrange")) {
                 do_get_range(sockfd, arr);
             }
-            //receive_response(sockfd);
-        }
-        for(int i = 0; i < sz; i++) {
             receive_response(sockfd);
         }
     }
