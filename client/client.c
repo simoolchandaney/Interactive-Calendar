@@ -178,7 +178,38 @@ void receive_response(int sockfd) {
 			exit(1);
 	}
 
-    printf("%s\n", data);
+    cJSON *response = cJSON_Parse(data);
+    char *command = cJSON_GetStringValue(cJSON_GetObjectItem(response, "command"));
+    char *calendar = cJSON_GetStringValue(cJSON_GetObjectItem(response, "calendar"));
+    char *success = cJSON_GetStringValue(cJSON_GetObjectItem(response, "success"));
+    //char *response_data = cJSON_GetStringValue(cJSON_GetObjectItem(response, "data"));
+
+    if(!strcmp(success, "True")) {
+        printf("%s command on calendar %s was successful\n", command, calendar);
+        if(!strcmp(command, "get") || !strcmp(command, "getrange")) {
+            
+            cJSON *events = cJSON_GetObjectItem(cJSON_GetObjectItem(response, "data"), "events");
+            cJSON *event;
+            cJSON_ArrayForEach(event, events) {
+                printf("Date: %s\n", cJSON_GetStringValue(cJSON_GetObjectItem(event, "date")));
+                printf("Time: %s\n", cJSON_GetStringValue(cJSON_GetObjectItem(event, "time")));
+                printf("Duration: %s\n", cJSON_GetStringValue(cJSON_GetObjectItem(event, "duration")));
+                printf("Name: %s\n", cJSON_GetStringValue(cJSON_GetObjectItem(event, "name")));
+                char *description = cJSON_GetStringValue(cJSON_GetObjectItem(event, "description"));
+                char *location = cJSON_GetStringValue(cJSON_GetObjectItem(event, "location"));
+                if(description) {
+                    printf("Description: %s\n", description);
+                }
+                if(location) {
+                    printf("Location: %s\n", location);
+                }
+                printf("\n");
+            }
+        }
+    }
+    else {
+        printf("%s command on calendar %s was unsuccessful\n", command, calendar);
+    }
     free(data);
     return;
 }

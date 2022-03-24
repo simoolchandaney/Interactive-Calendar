@@ -88,6 +88,8 @@ void send_response_json(int new_fd, char *action, char *calendar, int identifier
         perror("recv");
         exit(1);
     }  
+    cJSON_Delete(response);
+    return;
 }
 
 void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
@@ -149,6 +151,7 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
     }
     int success = !strcmp(error, "");
     send_response_json(new_fd, action, calendar_name, cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier")), success, error, cJSON_CreateObject());
+    cJSON_Delete(entry);
     return;
 }
 
@@ -237,8 +240,10 @@ void do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date,
     cJSON_AddNumberToObject(events_wrapper, "num_days", num_days);
     cJSON_AddItemToObject(events_wrapper, "events", events);
     //TODO return multiple identifiers??
-
+    
     send_response_json(new_fd, action, calendar_name, 0, 1, "", events_wrapper);
+    cJSON_Delete(events_wrapper);
+    
     return;
 }
 
@@ -269,46 +274,51 @@ void perform_action(char *action, cJSON *calendar, int new_fd, char *file_name, 
         free(start_date);
         free(end_date);
     }
-    /*else if(!strcmp(action, "input")) {
-        int sz = cJSON_GetArraySize(calendar);
-        for (int i = 0; i < sz; i++) {
-            char *str = cJSON_GetStringValue(cJSON_GetArrayItem(calendar, i)); // gets the string in the json
-            char delim[] = " ";
-            char *ptr = strtok(str, delim);
-            char *arr[BUFSIZ];
-            int j = 2;
-            arr[0] = NULL;
-            arr[1] = NULL;
-	        while(ptr != NULL) {
-                arr[j++] = ptr;    // place words of first string into array 
-		        ptr = strtok(NULL, delim);
-	        }
-            if(!strcmp(arr[2], "add")) {
-                do_add(calendar, new_fd, file_name, "add", calendar_name);
-            }
-            else if(!strcmp(arr[2], "remove")) {
-                do_remove(calendar, new_fd, file_name, "remove", calendar_name);
-            }
-            else if(!strcmp(arr[2], "update")) {
-                do_update(calendar, new_fd, file_name, "update", calendar_name);
-            }
-            else if(!strcmp(arr[2], "get")) {
-                do_get(calendar, new_fd, file_name, "get", calendar_name);
-            }
-            else if(!strcmp(arr[2], "getrange")) {
-                char *start_date = rec_data(new_fd, rec_data_sz(new_fd));
-                char *end_date = rec_data(new_fd, rec_data_sz(new_fd));
-                do_getrange(calendar, new_fd, file_name, start_date, end_date, "getrange", calendar_name);
-                free(start_date);
-                free(end_date);
-            }
-        }
-    }*/
 
     else {
         send_response_json(new_fd, "INVALID", calendar_name, 0, 0, "ACTION: Invalid action", cJSON_CreateObject());
     }
     return;
+}
+
+void run_calendar(int new_fd) {
+    char *calendar_name = rec_data(new_fd, rec_data_sz(new_fd));
+    //open file
+    char file_name[BUFSIZ];
+    strcat(file_name, "server/data/");
+    strcat(file_name, calendar_name);
+    strcat(file_name, ".json");
+
+    FILE *fp = fopen(file_name, "r");
+    if(!fp) {
+        fp  = fopen(file_name, "w+");
+        char *br = "[]";
+        fputs(br, fp);
+    }
+    
+    fseek(fp,0,SEEK_SET);
+
+    //parse json file for calendar into cJSON object
+    char calendar_buffer[BUFSIZ];
+    if(fread(calendar_buffer, 1, BUFSIZ, fp) == -1) {
+        perror("unable to read calendar");
+        exit(1);
+    }
+    
+    cJSON *calendar = cJSON_Parse(calendar_buffer);
+    uint16_t num_actions;
+    if(recv(new_fd, &num_actions, sizeof(num_actions), 0) == -1) {
+        perror("recv");
+        exit(1);
+    }
+    for(int i = 0; i < num_actions; i++) {
+        char *action = rec_data(new_fd, rec_data_sz(new_fd));
+        perform_action(action, calendar, new_fd, file_name, calendar_name);
+        free(action);
+    }
+    free(calendar_name);
+    close(new_fd);
+    exit(0); 
 }
 
 #define BACKLOG 10   // how many pending connections queue will hold
@@ -396,86 +406,12 @@ int main(int argc, char *argv[]) {
         if (!strcmp(argv[argc-1], "-mt")) {
             if (!fork()) { // this is the child process
                 close(sockfd); // child doesn't need the listener
-                char *calendar_name = rec_data(new_fd, rec_data_sz(new_fd));
-                //open file
-                char file_name[BUFSIZ];
-                strcat(file_name, "server/data/");
-                strcat(file_name, calendar_name);
-                strcat(file_name, ".json");
-
-                FILE *fp = fopen(file_name, "r");
-                if(!fp) {
-                    fp  = fopen(file_name, "w+");
-                    char *br = "[]";
-                    fputs(br, fp);
-                }
-                
-                fseek(fp,0,SEEK_SET);
-            
-                //parse json file for calendar into cJSON object
-                char calendar_buffer[BUFSIZ];
-                if(fread(calendar_buffer, 1, BUFSIZ, fp) == -1) {
-                    perror("unable to read calendar");
-                    exit(1);
-                }
-
-                cJSON *calendar = cJSON_Parse(calendar_buffer);
-                uint16_t num_actions;
-                if(recv(new_fd, &num_actions, sizeof(num_actions), 0) == -1) {
-                    perror("recv");
-                    exit(1);
-                }
-                for(int i = 0; i < num_actions; i++) {
-                    char *action = rec_data(new_fd, rec_data_sz(new_fd));
-                    perform_action(action, calendar, new_fd, file_name, calendar_name);
-                    free(action);
-                }
-                free(calendar_name);
-                close(new_fd);
-                exit(0); 
+                run_calendar(new_fd);
             }
         }
         else {
-            char *calendar_name = rec_data(new_fd, rec_data_sz(new_fd));
-            //open file
-            char file_name[BUFSIZ];
-            strcat(file_name, "server/data/");
-            strcat(file_name, calendar_name);
-            strcat(file_name, ".json");
-
-            FILE *fp = fopen(file_name, "r");
-            if(!fp) {
-                fp  = fopen(file_name, "w+");
-                char *br = "[]";
-                fputs(br, fp);
-            }
-
-            fseek(fp,0,SEEK_SET);
-           
-            //parse json file for calendar into cJSON object
-            char calendar_buffer[BUFSIZ];
-            if(fread(calendar_buffer, 1, BUFSIZ, fp) == -1) {
-                perror("unable to read calendar");
-                exit(1);
-            }
-
-            cJSON *calendar = cJSON_Parse(calendar_buffer);
-            uint16_t num_actions;
-            if(recv(new_fd, &num_actions, sizeof(num_actions), 0) == -1) {
-                perror("recv");
-                exit(1);
-            }
-            for(int i = 0; i < num_actions; i++) {
-                char *action = rec_data(new_fd, rec_data_sz(new_fd));
-                perform_action(action, calendar, new_fd, file_name, calendar_name);
-                free(action);
-            }
-            free(calendar_name);
-            close(new_fd);
-            exit(0);  
+            run_calendar(new_fd);  
         }
-        //close(new_fd);  // parent doesn't need this
-    
     }
     return 0;
 }
