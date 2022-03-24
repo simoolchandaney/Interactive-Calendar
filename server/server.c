@@ -88,7 +88,6 @@ void send_response_json(int new_fd, char *action, char *calendar, int identifier
         perror("recv");
         exit(1);
     }  
-    cJSON_Delete(response);
     return;
 }
 
@@ -165,7 +164,6 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
     }
     int success = !strcmp(error, "");
     send_response_json(new_fd, action, calendar_name, cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier")), success, error, cJSON_CreateObject());
-    cJSON_Delete(entry);
     return;
 }
 
@@ -239,6 +237,7 @@ void do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date,
     int start_date_int = date_to_int(start_date);
     int end_date_int = date_to_int(end_date);
     int num_days = 0;
+    
     cJSON *events_wrapper = cJSON_CreateObject();
     cJSON *events = cJSON_CreateArray();
     cJSON *entry = NULL;
@@ -251,13 +250,11 @@ void do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date,
             num_days += 1;
         } 
     }
+
     cJSON_AddNumberToObject(events_wrapper, "num_days", num_days);
     cJSON_AddItemToObject(events_wrapper, "events", events);
-    //TODO return multiple identifiers??
     
     send_response_json(new_fd, action, calendar_name, 0, 1, "", events_wrapper);
-    cJSON_Delete(events_wrapper);
-    
     return;
 }
 
