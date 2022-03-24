@@ -306,6 +306,11 @@ void perform_action(char *action, cJSON *calendar, int new_fd, char *file_name, 
 }
 
 void run_calendar(int new_fd) {
+    struct stat st = {0};
+
+    if (stat("server/data", &st) == -1) {
+        mkdir("server/data", 0700);
+    }
     char *calendar_name = rec_data(new_fd, rec_data_sz(new_fd));
     //open file
     char file_name[BUFSIZ];

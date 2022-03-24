@@ -347,7 +347,7 @@ int main(int argc, char *argv[])
     uint16_t calendar_name_sz = htons(strlen(calendar_name));
 
     // send size of calendar name
-    if ((send(sockfd, &calendar_name_sz, sizeof(calenadr_name_sz), 0)) == -1) {
+    if ((send(sockfd, &calendar_name_sz, sizeof(calendar_name_sz), 0)) == -1) {
         perror("recv");
         exit(1);  
     }
