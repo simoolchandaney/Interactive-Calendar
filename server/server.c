@@ -42,6 +42,7 @@ char *rec_data(int new_fd, uint16_t data_length) {
 }
 
 void write_back_to_file(cJSON *calendar, char *file_name) {
+    //write modified json back to calendar
     FILE *fp = fopen(file_name, "w+");
     char *calendar_string = cJSON_Print(calendar);
     if(fwrite(calendar_string, 1, strlen(calendar_string), fp) == -1) {
@@ -52,6 +53,7 @@ void write_back_to_file(cJSON *calendar, char *file_name) {
 }
 
 int date_to_int(char *date) {
+    //convert date to correct order yymmdd
     char year[2];
     memcpy(year, &date[4], 2);
     year[2] = '\0';
@@ -67,6 +69,7 @@ int date_to_int(char *date) {
 }
 
 void send_response_json(int new_fd, char *action, char *calendar, int identifier, int success, char *error, cJSON *data) {
+    
     //create response json
     cJSON *response = cJSON_CreateObject();
     cJSON_AddItemToObject(response, "command", cJSON_CreateString(action));
@@ -101,6 +104,7 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
     uint16_t num_fields = rec_data_sz(new_fd);
     cJSON *entry = cJSON_CreateObject();
 
+    //make sure required fields are input 
     for(int i = 0; i < num_fields/2; i++) {
         char *field = rec_data(new_fd, rec_data_sz(new_fd));
         // mark required fields
@@ -117,6 +121,7 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
         }  
         char *field_value = rec_data(new_fd, rec_data_sz(new_fd));
         cJSON_AddStringToObject(entry, field, field_value);
+        //check if a field is valid
         if(!valid_field) {
             error =  "ADD Error: invalid field value";
         }  
@@ -135,6 +140,7 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
         }
     }
 
+    //add empty strings for optional fields
     if(optional_field_check[0] == 0) {
         cJSON_AddStringToObject(entry, fields[4], "");
     }
@@ -168,12 +174,14 @@ void do_add(cJSON *calendar, int new_fd, char *file_name, char *action, char *ca
 }
 
 void do_remove(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
+
     char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
     int calendar_size = cJSON_GetArraySize(calendar);
     char *error = "";
     cJSON *entry = NULL;
     int found_identifier = 0;
     int identifier_value = NULL;
+    //iterate over entries checking identifiers
     for(int i = 0; i < calendar_size; i++) {
         entry = cJSON_GetArrayItem(calendar, i);
         int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
@@ -201,6 +209,7 @@ void do_update(cJSON *calendar, int new_fd, char *file_name, char *action, char 
     char *identifier = rec_data(new_fd, rec_data_sz(new_fd));
     char *field = rec_data(new_fd, rec_data_sz(new_fd));
     int valid_field = 0;
+    //check if inputted field is valid
     for(int i = 0; i < sizeof(fields)/sizeof(fields[0]); i++) {
         if (!strcmp(fields[i], field)) {
             valid_field = 1;
@@ -212,6 +221,7 @@ void do_update(cJSON *calendar, int new_fd, char *file_name, char *action, char 
     }
     cJSON *entry = NULL;
     int found_identifier = 0;
+    //update json
     cJSON_ArrayForEach(entry, calendar) {
         int curr_identifier = cJSON_GetNumberValue(cJSON_GetObjectItem(entry, "identifier"));
         if (atoi(identifier) == curr_identifier) {
@@ -245,6 +255,7 @@ void do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date,
         cJSON *date = cJSON_GetObjectItem(entry, "date");
         char *date_str = cJSON_GetStringValue(date);
         int curr_date = date_to_int(date_str);
+        //check if entry in date range
         if(curr_date >= start_date_int && curr_date <= end_date_int) {
             cJSON_AddItemReferenceToArray(events, entry);
             num_days += 1;
@@ -260,12 +271,14 @@ void do_getrange(cJSON *calendar, int new_fd, char *file_name, char *start_date,
 
 void do_get(cJSON *calendar, int new_fd, char *file_name, char *action, char *calendar_name) {
     char *date = rec_data(new_fd, rec_data_sz(new_fd));
+    //call do_getrange where start and end dates are the same
     do_getrange(calendar, new_fd, file_name, date, date, action, calendar_name);
     free(date);
     return;
 }
 
 void perform_action(char *action, cJSON *calendar, int new_fd, char *file_name, char *calendar_name) {
+    //check what the action is
     if(!strcmp(action, "add")) {
         do_add(calendar, new_fd, file_name, "add", calendar_name);
     }
@@ -285,7 +298,7 @@ void perform_action(char *action, cJSON *calendar, int new_fd, char *file_name, 
         free(start_date);
         free(end_date);
     }
-
+    //invalid action
     else {
         send_response_json(new_fd, "INVALID", calendar_name, 0, 0, "ACTION: Invalid action", cJSON_CreateObject());
     }

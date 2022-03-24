@@ -31,6 +31,7 @@ void *get_in_addr(struct sockaddr *sa)
 
 void split(char *buffer, char *argv[], size_t argv_size)
 {
+    //function splits strings by single quotations and spaces
     char *p, *start_of_word;
     int c;
     enum states { DULL, IN_WORD, IN_STRING } state = DULL;
@@ -78,6 +79,7 @@ void split(char *buffer, char *argv[], size_t argv_size)
 }
 
 void do_add(int sockfd, int argc, char *argv[]) {
+
     // count num of fields to be added
     uint16_t num_fields = 0;
     for(int i = 3; i < argc; i++) {
@@ -105,6 +107,7 @@ void do_add(int sockfd, int argc, char *argv[]) {
 }
 
 void do_remove(int sockfd, char *argv[]) {
+
     char *identifier = argv[3];
     uint16_t identifier_sz = htons(strlen(identifier));
     // send size of identifier
@@ -120,6 +123,7 @@ void do_remove(int sockfd, char *argv[]) {
 }
 
 void do_update(int sockfd, int argc, char *argv[]) {
+
     char *identifier = argv[3];
     uint16_t identifier_sz = htons(strlen(identifier));
     // send size of identifier
@@ -147,12 +151,15 @@ void do_update(int sockfd, int argc, char *argv[]) {
 }
 
 void do_get(int sockfd, char *argv[]) {
+
     char *date = argv[3];
     uint16_t date_sz = htons(strlen(date));
+    //send size of date
     if ((send(sockfd, &date_sz, sizeof(date_sz), 0)) == -1) {
         perror("recv");
         exit(1);  
     }
+    //send date
     if ((send(sockfd, date, strlen(date), 0)) == -1) {
         perror("recv");
         exit(1);  
@@ -160,6 +167,7 @@ void do_get(int sockfd, char *argv[]) {
 }
 
 void do_get_range(int sockfd, char *argv[]) {
+
     char *start_date = argv[3];
     uint16_t start_date_sz = htons(strlen(start_date));
     // send start_data size
@@ -187,6 +195,7 @@ void do_get_range(int sockfd, char *argv[]) {
 }
 
 void send_action(int sockfd, char *argv[]) {
+
     char *action_name = argv[2];
     uint16_t action_name_sz = htons(strlen(action_name));
 
@@ -204,6 +213,8 @@ void send_action(int sockfd, char *argv[]) {
 }
 
 void send_num_actions(int sockfd, uint16_t num_actions) {
+
+    //send number of acctions
     if ((send(sockfd, &num_actions, sizeof(num_actions), 0)) == -1) {
         perror("recv");
         exit(1);  
@@ -211,6 +222,7 @@ void send_num_actions(int sockfd, uint16_t num_actions) {
 }
 
 void receive_response(int sockfd) {
+
     // receive size of json file
     uint32_t numbytes;
     if ((recv(sockfd, &numbytes, sizeof(numbytes), 0)) == -1) {
@@ -227,11 +239,11 @@ void receive_response(int sockfd) {
 			exit(1);
 	}
 
+    //parse json and output formatted response
     cJSON *response = cJSON_Parse(data);
     char *command = cJSON_GetStringValue(cJSON_GetObjectItem(response, "command"));
     char *calendar = cJSON_GetStringValue(cJSON_GetObjectItem(response, "calendar"));
     char *success = cJSON_GetStringValue(cJSON_GetObjectItem(response, "success"));
-    //char *response_data = cJSON_GetStringValue(cJSON_GetObjectItem(response, "data"));
 
     if(!strcmp(success, "True")) {
         printf("%s command on calendar %s was successful\n", command, calendar);
@@ -332,10 +344,10 @@ int main(int argc, char *argv[])
     freeaddrinfo(servinfo); // all done with this structure
   
     char *calendar_name = argv[1];
-    uint16_t calenadr_name_sz = htons(strlen(calendar_name));
+    uint16_t calendar_name_sz = htons(strlen(calendar_name));
 
     // send size of calendar name
-    if ((send(sockfd, &calenadr_name_sz, sizeof(calenadr_name_sz), 0)) == -1) {
+    if ((send(sockfd, &calendar_name_sz, sizeof(calenadr_name_sz), 0)) == -1) {
         perror("recv");
         exit(1);  
     }
@@ -348,6 +360,7 @@ int main(int argc, char *argv[])
 
     char *action_name = argv[2];
 
+    //perform action based on action name
     if(!strcmp(action_name, "add")) {
         send_num_actions(sockfd, 1);
         send_action(sockfd, argv);
@@ -380,7 +393,6 @@ int main(int argc, char *argv[])
     }
     else if(!strcmp(action_name, "input")) {
         char *input_file_name = argv[3];
-        //uint16_t input_file_name_sz = htons(strlen(input_file_name));
         FILE *fp = fopen(input_file_name, "r");
         
         if(!fp) {
@@ -409,8 +421,6 @@ int main(int argc, char *argv[])
                 printf("%s\n", arr[j]);
                 j++;
             }
-            
-
             send_action(sockfd, arr);
             if(!strcmp(arr[2], "add")) {
                 do_add(sockfd, j, arr);
