@@ -170,12 +170,16 @@ void send_num_actions(int sockfd, uint16_t num_actions) {
 void receive_response(int sockfd) {
     // receive size of json file
     uint32_t numbytes;
+
     if ((recv(sockfd, &numbytes, sizeof(numbytes), 0)) == -1) {
 			perror("recv");
 			exit(1);
 	}
 
+    printf("received: %d\n", numbytes);
+
     numbytes = ntohs(numbytes);
+    printf("received: %d\n", numbytes);
     //receive json
     char *data = malloc(numbytes+1);
     data[numbytes] = '\0';
@@ -183,12 +187,13 @@ void receive_response(int sockfd) {
 			perror("recv");
 			exit(1);
 	}
+    
 
     printf("received: %s\n", data);
     free(data);
 
     return;
-    //printf("%s\n", data);
+
 }
 
 int main(int argc, char *argv[])
@@ -261,31 +266,31 @@ int main(int argc, char *argv[])
         send_num_actions(sockfd, 1);
         send_action(sockfd, argv);
         do_add(sockfd, argc, argv);
-        receive_response(sockfd);
+        //receive_response(sockfd);
     }
     else if(!strcmp(action_name, "remove")) {
         send_num_actions(sockfd, 1);
         send_action(sockfd, argv);
         do_remove(sockfd, argv);
-        receive_response(sockfd);
+        //receive_response(sockfd);
     }
     else if(!strcmp(action_name, "update")) {
         send_num_actions(sockfd, 1);
         send_action(sockfd, argv);
         do_update(sockfd, argc, argv);
-        receive_response(sockfd);
+        //receive_response(sockfd);
     }
     else if(!strcmp(action_name, "get")) {
         send_num_actions(sockfd, 1);
         send_action(sockfd, argv);
         do_get(sockfd, argv);
-        receive_response(sockfd);
+        //receive_response(sockfd);
     }
     else if(!strcmp(action_name, "getrange")) {
         send_num_actions(sockfd, 1);
         send_action(sockfd, argv);
         do_get_range(sockfd, argv);
-        receive_response(sockfd);
+        //receive_response(sockfd);
     }
     else if(!strcmp(action_name, "input")) {
         char *input_file_name = argv[3];
@@ -338,6 +343,9 @@ int main(int argc, char *argv[])
             else if(!strcmp(arr[2], "getrange")) {
                 do_get_range(sockfd, arr);
             }
+            //receive_response(sockfd);
+        }
+        for(int i = 0; i < sz; i++) {
             receive_response(sockfd);
         }
     }
