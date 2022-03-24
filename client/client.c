@@ -221,8 +221,26 @@ int main(int argc, char *argv[])
 	// struct sockaddr_in *h;
     int rv;
     char s[INET6_ADDRSTRLEN];
-	char *ip = "129.74.152.141";
-    char *port = "41113";
+
+    FILE *fp = fopen("client/.mycal", "r");
+        
+    if(!fp) {
+        perror("could not find .mycal file");
+        exit(1);
+    }
+
+    //parse json file for calendar into cJSON object
+    char my_cal[BUFSIZ];
+    if(fread(my_cal, 1, BUFSIZ, fp) == -1) {
+        perror("unable to read mycal");
+        exit(1);
+    }
+    fclose(fp);
+        
+    cJSON *config = cJSON_Parse(my_cal);
+
+	char *ip = cJSON_GetStringValue(cJSON_GetObjectItem(config, "servername"));
+    char *port = cJSON_GetStringValue(cJSON_GetObjectItem(config, "port"));
 
     if (argc < 4) {
         fprintf(stderr,"usage: CalendarName action -> data for action <-\n");
