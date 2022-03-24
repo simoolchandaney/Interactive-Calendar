@@ -10,7 +10,7 @@ Assigned TAs:
 - Alamin Mohammed
 - Luke Siela
 
-Due date: Friday, March 18th @ 10 PM
+Due date: Friday, March 25th @ 10 PM
 
 ## Usage
 - make (ran in ComputerNetworksProject01 directory): creates ./client/mycal and ./server/mycalserver executables
