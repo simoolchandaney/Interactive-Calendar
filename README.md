@@ -1,5 +1,4 @@
-# ComputerNetworksProject02
-Computer Networks Project 2 Repository
+# Interactive Calendar
 
 Group members:
 - Ian Havenaar
